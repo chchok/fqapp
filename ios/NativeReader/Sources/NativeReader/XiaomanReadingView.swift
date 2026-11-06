@@ -3256,6 +3256,28 @@ private struct ReaderView: View {
                                     }
                                     .id(index)
                             }
+                            HStack(spacing: 12) {
+                                Button {
+                                    Task { await openChapter(selectedIndex - 1) }
+                                } label: {
+                                    Label("上一章", systemImage: "chevron.left")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .disabled(selectedIndex == 0)
+                                .accessibilityIdentifier("reader.previousChapter")
+
+                                Button {
+                                    Task { await openChapter(selectedIndex + 1) }
+                                } label: {
+                                    Label("下一章", systemImage: "chevron.right")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .disabled(selectedIndex >= chapters.count - 1)
+                                .accessibilityIdentifier("reader.nextChapter")
+                            }
+                            .buttonStyle(.bordered)
+                            .padding(.top, 20)
+                            .padding(.bottom, 24)
                         }
                         .frame(maxWidth: 720, alignment: .leading)
                         .padding(.horizontal, readerHorizontalPadding).padding(.vertical, readerVerticalPadding)

@@ -22,6 +22,12 @@ final class ReaderSimulatorParityTests: XCTestCase {
         startReading.tap()
 
         let indicator = app.descendants(matching: .any)["reader.pageIndicator"]
+        if !indicator.waitForExistence(timeout: 5) {
+            app.buttons["reader.settings"].tap()
+            let pagedMode = app.buttons["分页阅读"].firstMatch
+            XCTAssertTrue(pagedMode.waitForExistence(timeout: 10), "阅读设置中没有分页阅读模式")
+            pagedMode.tap()
+        }
         XCTAssertTrue(indicator.waitForExistence(timeout: 30), "阅读页分页指示器没有出现")
         let pageSurface = app.staticTexts["reader.pageSurface"]
         XCTAssertTrue(pageSurface.waitForExistence(timeout: 10), "阅读正文没有呈现")
@@ -63,5 +69,12 @@ final class ReaderSimulatorParityTests: XCTestCase {
         autoTurn.tap()
         expectation(for: NSPredicate(format: "label != %@", pageBeforeAutoTurn), evaluatedWith: pageSurface)
         waitForExpectations(timeout: 8)
+
+        app.buttons["reader.settings"].tap()
+        let scrollMode = app.buttons["滚动阅读"].firstMatch
+        XCTAssertTrue(scrollMode.waitForExistence(timeout: 10), "阅读设置中没有滚动阅读模式")
+        scrollMode.tap()
+        XCTAssertTrue(app.buttons["reader.previousChapter"].waitForExistence(timeout: 10), "滚动正文末尾没有上一章入口")
+        XCTAssertTrue(app.buttons["reader.nextChapter"].exists, "滚动正文没有下一章入口")
     }
 }
