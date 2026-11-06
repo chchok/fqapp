@@ -85,6 +85,26 @@ pub unsafe extern "C" fn fq_native_init(
     json_string(result)
 }
 
+/// Returns a loopback resource URL scoped to this launch's capability.
+/// Native AVPlayer and image loaders use it for `/src/*` files served by the
+/// same Rust core (including range-decrypted CENC video files).
+#[no_mangle]
+pub unsafe extern "C" fn fq_native_resource_base_url() -> *mut c_char {
+    let result = catch_unwind(AssertUnwindSafe(|| -> Result<String, String> {
+        runtime()?.block_on(async {
+            let base = crate::api::base_url().await;
+            let capability = crate::api::session_capability().await;
+            if base.is_empty() || capability.is_empty() {
+                Err("native resource server is not running".to_string())
+            } else {
+                Ok(format!("{base}/_session/{capability}"))
+            }
+        })
+    }))
+    .unwrap_or_else(|_| Err("native core panicked while resolving the media server".into()));
+    json_string(result)
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn fq_native_request(
     method: *const c_char,

@@ -49,11 +49,15 @@ private let nativeFallbackHomeTabs = [
     NativeHomeTab(id: 4, title: "漫画", type: 9),
     NativeHomeTab(id: 5, title: "听书", type: 5)
 ]
+private let nativeShortDramaFeedTab = NativeHomeTab(id: 6, title: "短剧", type: 16)
 
 @MainActor
 final class NativeReadingStore: ObservableObject {
     @Published private(set) var results: [NativeBook] = []
+    @Published private(set) var searchHistory: [String] = UserDefaults.standard.stringArray(forKey: "xiaoman.searchHistory") ?? []
+    @Published private(set) var hotSearchTerms: [String] = []
     @Published private(set) var homeTabs: [NativeHomeTab] = nativeFallbackHomeTabs
+    @Published var selectedHomeTab = 0
     @Published private(set) var homeItems: [NativeBook] = []
     @Published private(set) var homeLoading = false
     @Published private(set) var homeMessage: String?
@@ -61,16 +65,51 @@ final class NativeReadingStore: ObservableObject {
     @Published private(set) var categoryTiles: [NativeCategoryTile] = []
     @Published private(set) var categoriesLoading = false
     @Published private(set) var categoriesMessage: String?
+    @Published private(set) var resourceBaseURL: URL?
     @Published private(set) var shelf: [NativeBook] = UserDefaults.standard.data(forKey: "xiaoman.shelf").flatMap { try? JSONDecoder().decode([NativeBook].self, from: $0) } ?? []
+    @Published private(set) var readingHistory: [NativeBook] = UserDefaults.standard.data(forKey: "xiaoman.history").flatMap { try? JSONDecoder().decode([NativeBook].self, from: $0) } ?? []
+    @Published private(set) var favorites: [NativeBook] = UserDefaults.standard.data(forKey: "xiaoman.favorites").flatMap { try? JSONDecoder().decode([NativeBook].self, from: $0) } ?? []
+    @Published private(set) var todayReadMinutes = UserDefaults.standard.integer(forKey: NativeReadingStore.todayReadMinutesKey())
     @Published private(set) var isLoading = false
     @Published private(set) var message: String?
     private var initialized = false
     private var lastQuery = ""
     private var loadedHomeTab: Int?
+    private var homeLoadGeneration = 0
+    private var readingSessionStartedAt: Date?
+
+    private static func todayReadMinutesKey() -> String {
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return "xiaoman.readMinutes.\(parts.year ?? 0)-\(parts.month ?? 0)-\(parts.day ?? 0)"
+    }
+
+    func beginReadingSession() {
+        if readingSessionStartedAt == nil { readingSessionStartedAt = Date() }
+    }
+
+    func endReadingSession() {
+        guard let started = readingSessionStartedAt else { return }
+        readingSessionStartedAt = nil
+        let minutes = Int(Date().timeIntervalSince(started) / 60)
+        guard minutes > 0 else { return }
+        todayReadMinutes += minutes
+        UserDefaults.standard.set(todayReadMinutes, forKey: Self.todayReadMinutesKey())
+        objectWillChange.send()
+    }
 
     func recordProgress(for book: NativeBook, chapter: NativeChapter) {
         UserDefaults.standard.set(chapter.title, forKey: "xiaoman.progress.\(book.id)")
         UserDefaults.standard.set(chapter.id, forKey: "xiaoman.chapter.\(book.id)")
+        readingHistory.removeAll { $0.id == book.id }
+        readingHistory.insert(book, at: 0)
+        if let data = try? JSONEncoder().encode(readingHistory) { UserDefaults.standard.set(data, forKey: "xiaoman.history") }
+        objectWillChange.send()
+    }
+
+    func recordMediaHistory(_ item: NativeBook) {
+        readingHistory.removeAll { $0.id == item.id }
+        readingHistory.insert(item, at: 0)
+        if let data = try? JSONEncoder().encode(readingHistory) { UserDefaults.standard.set(data, forKey: "xiaoman.history") }
         objectWillChange.send()
     }
 
@@ -84,10 +123,37 @@ final class NativeReadingStore: ObservableObject {
         if let data = try? JSONEncoder().encode(shelf) { UserDefaults.standard.set(data, forKey: "xiaoman.shelf") }
     }
 
+    func toggleFavorite(_ item: NativeBook) {
+        if favorites.contains(where: { $0.id == item.id }) { favorites.removeAll { $0.id == item.id } }
+        else { favorites.insert(item, at: 0) }
+        if let data = try? JSONEncoder().encode(favorites) { UserDefaults.standard.set(data, forKey: "xiaoman.favorites") }
+        objectWillChange.send()
+    }
+
+    func clearReadingHistory() {
+        readingHistory.removeAll()
+        UserDefaults.standard.removeObject(forKey: "xiaoman.history")
+        objectWillChange.send()
+    }
+
+    func clearSearchHistory() {
+        searchHistory.removeAll()
+        UserDefaults.standard.removeObject(forKey: "xiaoman.searchHistory")
+        objectWillChange.send()
+    }
+
+    func loadHotSearchTerms() async {
+        guard hotSearchTerms.isEmpty else { return }
+        do {
+            try await initializeIfNeeded()
+            hotSearchTerms = try await Task.detached(priority: .userInitiated) { try Self.fetchHotSearchTerms() }.value
+        } catch { /* Search remains available without discovery data. */ }
+    }
+
     func directory(for book: NativeBook) async throws -> [NativeChapter] {
         try await initializeIfNeeded()
         return try await Task.detached(priority: .userInitiated) {
-            try Self.fetchDirectory(book.id)
+            try Self.fetchDirectory(book.id, kind: book.kind)
         }.value
     }
 
@@ -100,14 +166,16 @@ final class NativeReadingStore: ObservableObject {
 
     func loadHome(tabIndex: Int = 0, force: Bool = false) async {
         guard force || loadedHomeTab != tabIndex else { return }
-        guard !homeLoading else { return }
+        homeLoadGeneration += 1
+        let generation = homeLoadGeneration
         homeLoading = true
         homeMessage = nil
-        defer { homeLoading = false }
+        if loadedHomeTab != tabIndex { homeItems = [] }
+        defer { if generation == homeLoadGeneration { homeLoading = false } }
         do {
             try await initializeIfNeeded()
             let tabs = homeTabs
-              let tab = tabs.indices.contains(tabIndex) ? tabs[tabIndex] : nativeFallbackHomeTabs[0]
+            let tab = tabs.indices.contains(tabIndex) ? tabs[tabIndex] : (tabIndex == nativeShortDramaFeedTab.id ? nativeShortDramaFeedTab : nativeFallbackHomeTabs[0])
             guard tab.type > 1 else {
                 homeItems = []
                 homeMessage = "此分类暂不支持直接推荐，请使用搜索查看作品。"
@@ -116,20 +184,27 @@ final class NativeReadingStore: ObservableObject {
             let result = try await Task.detached(priority: .userInitiated) {
                 try Self.performHome(tab: tab, tabIndex: tabIndex)
             }.value
+            guard generation == homeLoadGeneration else { return }
             homeItems = result.items
             loadedHomeTab = tabIndex
             if homeItems.isEmpty { homeMessage = "该分类暂时没有推荐内容" }
         } catch {
-            homeMessage = error.localizedDescription
+            if generation == homeLoadGeneration { homeMessage = error.localizedDescription }
         }
     }
 
     func search(_ query: String) async {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty, query != lastQuery else { return }
+        guard !query.isEmpty else { lastQuery = ""; results = []; message = nil; return }
+        guard query != lastQuery else { return }
         lastQuery = query
         isLoading = true
         message = nil
+        results = []
+        searchHistory.removeAll { $0 == query }
+        searchHistory.insert(query, at: 0)
+        searchHistory = Array(searchHistory.prefix(20))
+        UserDefaults.standard.set(searchHistory, forKey: "xiaoman.searchHistory")
         defer { isLoading = false }
         do {
             try await initializeIfNeeded()
@@ -146,6 +221,14 @@ final class NativeReadingStore: ObservableObject {
         try await initializeIfNeeded()
         return try await Task.detached(priority: .userInitiated) {
             try Self.fetchMediaDetails(item)
+        }.value
+    }
+
+    func videoURL(for episode: NativeChapter) async throws -> URL {
+        try await initializeIfNeeded()
+        guard let base = resourceBaseURL?.absoluteString else { throw NativeClientError.message("媒体服务尚未启动") }
+        return try await Task.detached(priority: .userInitiated) {
+            try Self.fetchVideoURL(episode.id, resourceBase: base)
         }.value
     }
 
@@ -178,9 +261,12 @@ final class NativeReadingStore: ObservableObject {
         try FileManager.default.createDirectory(at: runtime, withIntermediateDirectories: true)
         let pool = runtime.appendingPathComponent("device_pool.json")
         let runtimePath = runtime.path
-        try await Task.detached(priority: .userInitiated) {
+        let resourceBase = try await Task.detached(priority: .userInitiated) {
             try Self.initialize(config: config, pool: pool.path, filters: filters, runtime: runtimePath)
+            return try Self.resourceBaseURL()
         }.value
+        guard let url = URL(string: resourceBase) else { throw NativeClientError.message("媒体服务地址无效") }
+        resourceBaseURL = url
         initialized = true
     }
 
@@ -230,6 +316,18 @@ final class NativeReadingStore: ObservableObject {
         }
     }
 
+    nonisolated private static func resourceBaseURL() throws -> String {
+        let pointer = fq_native_resource_base_url()
+        guard let pointer else { throw NativeClientError.emptyResponse }
+        defer { fq_native_string_free(pointer) }
+        let data = Data(bytes: pointer, count: strlen(pointer))
+        let envelope = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard envelope?["ok"] as? Bool == true, let value = envelope?["value"] as? String else {
+            throw NativeClientError.message(envelope?["error"] as? String ?? "无法取得本地媒体服务地址")
+        }
+        return value
+    }
+
     nonisolated private static func performHome(tab: NativeHomeTab, tabIndex: Int) throws -> (tabs: [NativeHomeTab], items: [NativeBook]) {
         let payload = try performJSONRequest(path: "/api/v1/recommend/homepage", parameters: [
             URLQueryItem(name: "tab_type", value: String(tab.type)),
@@ -237,7 +335,8 @@ final class NativeReadingStore: ObservableObject {
             URLQueryItem(name: "tab_index", value: String(tabIndex)),
             URLQueryItem(name: "last_tab_index", value: String(tabIndex))
         ])
-        return (nativeFallbackHomeTabs, parseBooks(payload, category: tab.title))
+        let contentKind = tab.type == 16 || tab.type == 8 ? "短剧" : tab.title
+        return (nativeFallbackHomeTabs, parseBooks(payload, category: contentKind))
     }
 
     nonisolated private static func fetchMediaDetails(_ item: NativeBook) throws -> [String: String] {
@@ -272,6 +371,32 @@ final class NativeReadingStore: ObservableObject {
         return result
     }
 
+    nonisolated private static func fetchVideoURL(_ episodeId: String, resourceBase: String) throws -> URL {
+        let id = episodeId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? episodeId
+        let payload = try performJSONRequest(path: "/api/v1/videos/\(id)", parameters: [])
+        var relativePath: String?
+        func visit(_ value: Any, depth: Int) {
+            guard depth < 8, relativePath == nil else { return }
+            if let map = value as? [String: Any] {
+                if let candidate = string(map, keys: ["video_url", "main_url"], fallback: [:]), !candidate.isEmpty {
+                    relativePath = candidate
+                    return
+                }
+                for (key, child) in map where ["data", "video_info", "video_list", "video_1"].contains(key) { visit(child, depth: depth + 1) }
+            } else if let list = value as? [Any] { list.forEach { visit($0, depth: depth + 1) } }
+        }
+        visit(payload, depth: 0)
+        guard let path = relativePath else { throw NativeClientError.message("服务端没有返回可播放视频地址") }
+        if path.hasPrefix("/src/") {
+            guard let url = URL(string: resourceBase + path) else { throw NativeClientError.message("视频缓存地址无效") }
+            return url
+        }
+        guard let url = URL(string: path), ["http", "https", "file"].contains(url.scheme?.lowercased() ?? "") else {
+            throw NativeClientError.message("服务端返回的视频地址无效")
+        }
+        return url
+    }
+
     nonisolated private static func fetchCategories(channel: String) throws -> (channels: [NativeCategoryChannel], tiles: [NativeCategoryTile]) {
         let payload = try performJSONRequest(path: "/api/v1/category", parameters: [URLQueryItem(name: "category_tab", value: channel)])
         guard let root = payload as? [String: Any], let data = root["data"] as? [String: Any] else { return ([], []) }
@@ -294,6 +419,22 @@ final class NativeReadingStore: ObservableObject {
         return (channels, tiles)
     }
 
+    nonisolated private static func fetchHotSearchTerms() throws -> [String] {
+        let payload = try performJSONRequest(path: "/api/v1/search/hot", parameters: [])
+        guard let root = payload as? [String: Any], let cells = root["data"] as? [[String: Any]] else { return [] }
+        var terms: [String] = []
+        var seen = Set<String>()
+        for cell in cells {
+            guard let tags = cell["search_tag_data"] as? [[String: Any]] else { continue }
+            for tag in tags {
+                guard let title = string(tag, keys: ["tag_title"], fallback: [:]), !title.isEmpty, seen.insert(title).inserted else { continue }
+                terms.append(title)
+                if terms.count == 10 { return terms }
+            }
+        }
+        return terms
+    }
+
     nonisolated private static func performSearch(_ query: String) throws -> [NativeBook] {
         let payload = try performJSONRequest(path: "/api/v1/search", parameters: [
             URLQueryItem(name: "query", value: query),
@@ -303,9 +444,19 @@ final class NativeReadingStore: ObservableObject {
         return parseBooks(payload)
     }
 
-    nonisolated private static func fetchDirectory(_ bookId: String) throws -> [NativeChapter] {
+    nonisolated private static func fetchDirectory(_ bookId: String, kind: String) throws -> [NativeChapter] {
         let id = bookId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? bookId
-        let payload = try performJSONRequest(path: "/api/v1/books/\(id)/directory", parameters: [])
+        let payload: Any
+        if kind == "video" || kind == "manju" {
+            payload = try performJSONRequest(path: "/api/v1/manga/videos/\(id)", parameters: [
+                URLQueryItem(name: "offset", value: "1"),
+                URLQueryItem(name: "count", value: "80"),
+                URLQueryItem(name: "total", value: "80"),
+                URLQueryItem(name: "pseries_type", value: "5")
+            ])
+        } else {
+            payload = try performJSONRequest(path: "/api/v1/books/\(id)/directory", parameters: [])
+        }
         return parseChapters(payload)
     }
 
@@ -345,17 +496,17 @@ final class NativeReadingStore: ObservableObject {
             if let array = value as? [Any] {
                 for (index, item) in array.enumerated() {
                     if let map = item as? [String: Any],
-                       let id = string(map, keys: ["item_id", "itemId", "chapter_id", "id"], fallback: [:]),
+                       let id = string(map, keys: ["item_id", "itemId", "chapter_id", "video_id", "episode_id", "vid", "id"], fallback: [:]),
                        !id.isEmpty, seen.insert(id).inserted {
-                        let rawTitle = string(map, keys: ["title", "chapter_title", "name", "item_title"], fallback: [:]) ?? ""
-                        output.append(NativeChapter(id: id, title: rawTitle.isEmpty ? "第\(index + 1)章" : rawTitle))
+                        let rawTitle = string(map, keys: ["title", "episode_title", "chapter_title", "name", "item_title"], fallback: [:]) ?? ""
+                        output.append(NativeChapter(id: id, title: rawTitle.isEmpty ? "第\(index + 1)集" : rawTitle))
                     }
                     visit(item, depth: depth + 1)
                 }
                 return
             }
             guard let map = value as? [String: Any] else { return }
-            for (key, child) in map where ["item_data_list", "chapterListWithVolume", "chapterList", "data", "chapter_list"].contains(key) {
+            for (key, child) in map where ["episodes", "item_data_list", "item_list", "lists", "chapterListWithVolume", "chapterList", "data", "chapter_list", "video_data", "pseries_data"].contains(key) {
                 visit(child, depth: depth + 1)
             }
         }

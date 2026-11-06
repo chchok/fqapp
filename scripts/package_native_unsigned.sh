@@ -16,10 +16,10 @@ ditto "$ROOT/build/native-macos/Build/Products/Release/XiaomanReading-macOS.app"
 cat > "$OUT/README.md" <<'NOTES'
 # 小满阅读原生版（未签名构建）
 
-- `ios/XiaomanReading-iOS-unsigned.ipa`：iOS 真机 Release 包；未签名，需要用开发者证书重签后安装。
-- `macos/XiaomanReading-macOS-unsigned.zip`：Intel 与 Apple Silicon 通用 macOS Release App；未签名，正式分发需签名和公证。
+- `ios/XiaomanReading-iOS-unsigned.ipa`：iOS 真机 Release 包，未签名；需重签后才能安装。
+- `macos/XiaomanReading-macOS-unsigned.zip`：Intel 与 Apple Silicon 通用 macOS Release App，未签名。
 
-当前预览包括原生首页推荐与六类频道、分类浏览、短剧入口、搜索、作品卡片与基础详情、小说目录和章节阅读、本地书架及阅读进度。内容通过仓库内同一 Rust 核心请求。
+当前原生预览含首页频道与分类浏览、搜索/热搜、短剧频道、作品详情、短剧剧集目录和 AVPlayer 播放、小说详情与章节阅读、书架/历史/收藏及“我的”页面。内容请求复用仓库 Rust 核心。
 
-尚未移植完成：短剧/漫剧播放与剧集详情、漫画阅读、听书播放与后台控制、分类和排行榜、完整书架/收藏管理、评论互动、离线下载与多设备同步。此预览不代表 Android 功能已全部覆盖。
+本包仍是开发预览。与 Android 的逐页布局和交互尚未完成完整对照验收；播放器的弹幕、评论、清晰度、离线下载等控件，漫画阅读、听书后台播放、备份导入及跨设备同步等功能仍未完成。不能据此宣称功能或 UI 已与 Android 完全一致。
 NOTES
