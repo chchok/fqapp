@@ -11,6 +11,12 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      device_tests_passed:
+        description: "Only enable after iPhone and iPad real-device acceptance has passed"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -63,11 +69,11 @@ jobs:
           git push origin HEAD:master
 
       - name: Build unsigned iOS and macOS installers
-        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+        if: github.event_name == 'workflow_dispatch' && inputs.device_tests_passed == true
         run: ./scripts/package_native_unsigned.sh
 
       - name: Publish prerelease assets
-        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+        if: github.event_name == 'workflow_dispatch' && inputs.device_tests_passed == true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -86,5 +92,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target HEAD \
             --title "小满阅读原生预览 ${stamp}" \
-            --notes "自动同步自 ch6vip/fqapp master（${revision}）。附未签名 iOS IPA、Intel/Apple Silicon 通用 macOS ZIP、构建说明及校验值。本构建为开发预览，Android 布局尚未完成逐页一致性验收；iOS IPA 需重签后安装。" \
+            --notes "同步自 ch6vip/fqapp master（${revision}）。附未签名 iOS IPA、Intel/Apple Silicon 通用 macOS ZIP、构建说明及校验值。发布由维护者确认 iPhone 与 iPad 真机验收通过后手动触发；iOS IPA 需重签后安装。" \
             --prerelease
