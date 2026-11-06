@@ -85,3 +85,11 @@ APK 校验须传入 `--apk`、`--build-tools`、`--report-dir` 以及预期签�
 `--help` 只显示参数，不算通过 APK 验证。
 
 `verify_audio_cenc.cjs` 的 AAC 样本头匹配是诊断线索，不等于解码器播放成功。图标生成细节见 [品牌资源说明](../assets/branding/README.md)。诊断输出放在 `build/`；经用户验收的发布资料按版本存入 `release-archives/`。
+
+## 小满阅读原生版（iOS / macOS）
+
+- `build_rust_native.sh`：编译 Rust 原生核心（iOS 真机、模拟器、macOS arm64/x86_64），并同步打包所需 config/filter 资源。
+- `package_native_unsigned.sh`：生成 SwiftUI 工程，构建两个平台 Release 并输出到 `dist/unsigned/`。
+- `sync_upstream_native.sh`：同步 `upstream/master`，随后重编核心并构建 iOS/macOS Release。要求工作区干净；脚本不会自动推送。
+
+初次配置 `upstream` 指向 `https://github.com/ch6vip/fqapp.git`；复刻仓库 `origin` 指向 `chchok/fqapp`。

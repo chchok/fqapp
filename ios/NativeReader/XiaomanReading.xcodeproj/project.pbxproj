@@ -1,0 +1,435 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1607B300251616E35AAA7A89 /* config.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F6C42C9FBB1180F980C2150 /* config.json */; };
+		3A1C0A0EB4808A05549240A9 /* NativeRustClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */; };
+		490BC9C9AEC4F478A94311B6 /* NativeRustClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */; };
+		5FBFAA93BC69AE3EF5439665 /* XiaomanReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */; };
+		617A3EE27F6FA2CBABF09CE3 /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD223DA881BDC9A6D54F978 /* AppMain.swift */; };
+		8961E7FD3FEC79427115D1DF /* filter.json in Resources */ = {isa = PBXBuildFile; fileRef = 3926E4E598CA1922AB839F88 /* filter.json */; };
+		8C048BBE1DD0174DA59DEE4F /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD223DA881BDC9A6D54F978 /* AppMain.swift */; };
+		9D5A681835B9C2DB4BB7661B /* config.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F6C42C9FBB1180F980C2150 /* config.json */; };
+		B5F65E33AAD6EFD0F4D3FA36 /* filter.json in Resources */ = {isa = PBXBuildFile; fileRef = 3926E4E598CA1922AB839F88 /* filter.json */; };
+		C27C6839C8D765A41CD17AEC /* XiaomanReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		3926E4E598CA1922AB839F88 /* filter.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = filter.json; sourceTree = "<group>"; };
+		3AD223DA881BDC9A6D54F978 /* AppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
+		420B69D2DF1725C9D264BDCC /* XiaomanReading-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XiaomanReading-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		66FDB8A29C216968C1300A1C /* XiaomanReading-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "XiaomanReading-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XiaomanReadingView.swift; sourceTree = "<group>"; };
+		7F6C42C9FBB1180F980C2150 /* config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config.json; sourceTree = "<group>"; };
+		973F6A05A84C17EB8180EE6A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRustClient.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		1C88120AD2618C3EA4EEF468 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				7F6C42C9FBB1180F980C2150 /* config.json */,
+				3926E4E598CA1922AB839F88 /* filter.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		4C8BE73E046A04490E16358B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				66FDB8A29C216968C1300A1C /* XiaomanReading-iOS.app */,
+				420B69D2DF1725C9D264BDCC /* XiaomanReading-macOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7CC9FE88E8803390EEFCA57F /* NativeApp */ = {
+			isa = PBXGroup;
+			children = (
+				3AD223DA881BDC9A6D54F978 /* AppMain.swift */,
+				973F6A05A84C17EB8180EE6A /* Info.plist */,
+			);
+			name = NativeApp;
+			path = ../NativeApp;
+			sourceTree = "<group>";
+		};
+		9D243282A2198BA1EBE44FE7 = {
+			isa = PBXGroup;
+			children = (
+				7CC9FE88E8803390EEFCA57F /* NativeApp */,
+				CCC82FCD6C42874F3467C92D /* NativeReader */,
+				1C88120AD2618C3EA4EEF468 /* Resources */,
+				4C8BE73E046A04490E16358B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CCC82FCD6C42874F3467C92D /* NativeReader */ = {
+			isa = PBXGroup;
+			children = (
+				9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */,
+				7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */,
+			);
+			name = NativeReader;
+			path = Sources/NativeReader;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CF48F9C1679D61B2B101F2CF /* XiaomanReading-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7DF43FCF04800DBAFDF008DF /* Build configuration list for PBXNativeTarget "XiaomanReading-macOS" */;
+			buildPhases = (
+				019B34C00F4BD5E56A4AC813 /* Sources */,
+				524F8C0CCC19FA0D4C7C3435 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "XiaomanReading-macOS";
+			packageProductDependencies = (
+			);
+			productName = "XiaomanReading-macOS";
+			productReference = 420B69D2DF1725C9D264BDCC /* XiaomanReading-macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F9DA0A7CD9A76498EFA71A56 /* XiaomanReading-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 28072DA7BEC5117C26682AF9 /* Build configuration list for PBXNativeTarget "XiaomanReading-iOS" */;
+			buildPhases = (
+				5E676B85A169995FE07517DB /* Sources */,
+				59CE422D02E8D935EE05857E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "XiaomanReading-iOS";
+			packageProductDependencies = (
+			);
+			productName = "XiaomanReading-iOS";
+			productReference = 66FDB8A29C216968C1300A1C /* XiaomanReading-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7EDB512F9BEFAE610EFAB73F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 3FA873F5FF8A1C1E19F490F5 /* Build configuration list for PBXProject "XiaomanReading" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9D243282A2198BA1EBE44FE7;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4C8BE73E046A04490E16358B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F9DA0A7CD9A76498EFA71A56 /* XiaomanReading-iOS */,
+				CF48F9C1679D61B2B101F2CF /* XiaomanReading-macOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		524F8C0CCC19FA0D4C7C3435 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9D5A681835B9C2DB4BB7661B /* config.json in Resources */,
+				8961E7FD3FEC79427115D1DF /* filter.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		59CE422D02E8D935EE05857E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1607B300251616E35AAA7A89 /* config.json in Resources */,
+				B5F65E33AAD6EFD0F4D3FA36 /* filter.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		019B34C00F4BD5E56A4AC813 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				617A3EE27F6FA2CBABF09CE3 /* AppMain.swift in Sources */,
+				3A1C0A0EB4808A05549240A9 /* NativeRustClient.swift in Sources */,
+				C27C6839C8D765A41CD17AEC /* XiaomanReadingView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5E676B85A169995FE07517DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C048BBE1DD0174DA59DEE4F /* AppMain.swift in Sources */,
+				490BC9C9AEC4F478A94311B6 /* NativeRustClient.swift in Sources */,
+				5FBFAA93BC69AE3EF5439665 /* XiaomanReadingView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0D0B563C124B2042095692B7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		264B6C1D729E79C6A1A7FA9B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../NativeApp";
+				INFOPLIST_FILE = ../NativeApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = "$(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_ios.a -framework Security -framework CoreFoundation -lz -liconv";
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = "$(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_iphonesimulator.a -framework Security -framework CoreFoundation -lz -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = com.chchok.xiaomanreading.ios;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/../NativeApp/FqNativeCore.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		751763479B654F4B2714A1EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../NativeApp";
+				INFOPLIST_FILE = ../NativeApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = "$(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_ios.a -framework Security -framework CoreFoundation -lz -liconv";
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = "$(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_iphonesimulator.a -framework Security -framework CoreFoundation -lz -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = com.chchok.xiaomanreading.ios;
+				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/../NativeApp/FqNativeCore.h";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B0A93136EEC9D15BBDE59956 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		C85D3BE45247D4ED292118C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../NativeApp";
+				INFOPLIST_FILE = ../NativeApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = "$(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_macos_universal.a -framework Security -framework CoreFoundation -lz -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = com.chchok.xiaomanreading.macos;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/../NativeApp/FqNativeCore.h";
+			};
+			name = Release;
+		};
+		EC540FDA3481D709DFC8122A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../NativeApp";
+				INFOPLIST_FILE = ../NativeApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = "$(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_macos_universal.a -framework Security -framework CoreFoundation -lz -liconv";
+				PRODUCT_BUNDLE_IDENTIFIER = com.chchok.xiaomanreading.macos;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/../NativeApp/FqNativeCore.h";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		28072DA7BEC5117C26682AF9 /* Build configuration list for PBXNativeTarget "XiaomanReading-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				264B6C1D729E79C6A1A7FA9B /* Debug */,
+				751763479B654F4B2714A1EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3FA873F5FF8A1C1E19F490F5 /* Build configuration list for PBXProject "XiaomanReading" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D0B563C124B2042095692B7 /* Debug */,
+				B0A93136EEC9D15BBDE59956 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7DF43FCF04800DBAFDF008DF /* Build configuration list for PBXNativeTarget "XiaomanReading-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EC540FDA3481D709DFC8122A /* Debug */,
+				C85D3BE45247D4ED292118C8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7EDB512F9BEFAE610EFAB73F /* Project object */;
+}
