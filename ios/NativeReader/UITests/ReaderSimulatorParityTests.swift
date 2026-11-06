@@ -93,4 +93,25 @@ final class ReaderSimulatorParityTests: XCTestCase {
         XCTAssertTrue(startAgain.waitForExistence(timeout: 10), "停止朗读后没有恢复待播放状态")
         XCTAssertEqual(startAgain.label, "开始系统朗读")
     }
+
+    func testLocalServiceHealthFromSettings() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["什锦铺"].waitForExistence(timeout: 30))
+        let mineTab = app.buttons["tab.我的"]
+        XCTAssertTrue(mineTab.waitForExistence(timeout: 10), "底部导航没有“我的”入口")
+        mineTab.tap()
+
+        let serviceEntry = app.buttons["settings.entry.本地接口"]
+        XCTAssertTrue(serviceEntry.waitForExistence(timeout: 10), "设置页没有本地接口入口")
+        if !serviceEntry.isHittable { app.swipeUp() }
+        serviceEntry.tap()
+
+        let status = app.staticTexts["settings.service.status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "本地服务状态没有显示")
+        expectation(for: NSPredicate(format: "label == %@", "运行中"), evaluatedWith: status)
+        waitForExpectations(timeout: 10)
+        XCTAssertTrue(app.staticTexts["设备池"].exists || app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "个设备")).firstMatch.exists)
+    }
 }

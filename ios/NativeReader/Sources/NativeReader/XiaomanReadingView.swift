@@ -138,7 +138,9 @@ private struct NativeDock: View {
                     .foregroundStyle(active ? accent : Color.primary.opacity(0.68))
                     .frame(width: itemWidth, height: 48)
                     .contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("tab.\(item.2)")
             }
         }
         .padding(.horizontal, 6)
@@ -2330,7 +2332,8 @@ private struct ShelfView: View {
                                 .foregroundStyle(filter == index ? ink : muted)
                                 .padding(.horizontal, 10).padding(.vertical, 6)
                                 .background(filter == index ? Color.black.opacity(0.07) : .clear, in: Capsule())
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
                     }
                 } else { Spacer(minLength: 0) }
                 Spacer(minLength: 0)
@@ -2342,7 +2345,8 @@ private struct ShelfView: View {
                                 .foregroundStyle(layout == index ? ink : muted)
                                 .frame(width: 34, height: 29)
                                 .background(layout == index ? Color.white : .clear, in: RoundedRectangle(cornerRadius: 8))
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }.padding(3).background(Color.black.opacity(0.045), in: RoundedRectangle(cornerRadius: 11))
             }
@@ -3700,6 +3704,7 @@ private struct SettingsView: View {
         ("正文替换", "text.badge.star", "自定义普通文本或正则替换规则"),
         ("离线缓存", "arrow.down.to.line", "管理小说与短剧的离线内容"),
         ("备份与导入", "archivebox", "本机备份、恢复与外部书架导入"),
+        ("本地接口", "network", "服务状态、设备数与可用接口"),
         ("关于", "info.circle", "版本与应用信息")
     ]
 
@@ -3741,7 +3746,9 @@ private struct SettingsView: View {
                             .padding(16).frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
                             .background(Color.white.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
                             .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.09), lineWidth: 0.7))
-                        }.buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("settings.entry.\(title)")
                     }
                 }.padding(.horizontal, 16).padding(.bottom, 100)
             }
@@ -3768,6 +3775,8 @@ private struct SettingsView: View {
                         NativeTextReplacementView(store: store)
                     } else if route.title == "备份与导入" {
                         NativeLibraryBackupView(store: store)
+                    } else if route.title == "本地接口" {
+                        NativeLocalServiceView(store: store)
                     } else if route.title == "关于" {
                         List {
                             LabeledContent("应用名称", value: "小满阅读")
@@ -3784,6 +3793,106 @@ private struct SettingsView: View {
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { selectedEntry = nil } } }
             }
             .presentationDetents([.medium, .large])
+        }
+    }
+}
+
+private struct NativeLocalServiceView: View {
+    @ObservedObject var store: NativeReadingStore
+    @State private var status = "等待检查"
+    @State private var deviceCount: Int?
+    @State private var isChecking = false
+    @State private var lastChecked: Date?
+
+    private let endpoints: [(String, String, String)] = [
+        ("搜索", "/api/v1/search/fanqie?query=", "按关键词搜索小说"),
+        ("详情", "/api/v1/books/{book_id}", "作品信息与简介"),
+        ("目录", "/api/v1/books/{book_id}/directory", "章节目录"),
+        ("正文", "/api/v1/chapters/{item_id}", "章节正文与插图")
+    ]
+
+    var body: some View {
+        List {
+            Section("本机服务") {
+                HStack {
+                    Text("状态")
+                    Spacer()
+                    Text(status).accessibilityIdentifier("settings.service.status")
+                }
+                if let deviceCount {
+                    LabeledContent("设备池", value: "\(deviceCount) 个设备")
+                }
+                if let baseURL = store.resourceBaseURL {
+                    LabeledContent("服务地址") {
+                        Text(baseURL.absoluteString)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                } else {
+                    Text("服务启动后会显示本机地址。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                if let lastChecked {
+                    LabeledContent("最近检查", value: lastChecked.formatted(date: .omitted, time: .shortened))
+                }
+                Button {
+                    Task { await checkHealth() }
+                } label: {
+                    Label(isChecking ? "正在检查…" : "检查连接", systemImage: "arrow.clockwise")
+                }
+                .disabled(isChecking || store.resourceBaseURL == nil)
+                .accessibilityIdentifier("settings.service.check")
+            }
+
+            Section("可用接口") {
+                ForEach(endpoints, id: \.0) { endpoint in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(endpoint.0).font(.body.weight(.medium))
+                        Text(endpoint.1)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        Text(endpoint.2).font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 3)
+                }
+                Text("接口地址含本次运行的访问令牌，只在本机使用。花括号内为需要替换的 ID。")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("本地接口")
+        .task(id: store.resourceBaseURL?.absoluteString) { await checkHealth() }
+    }
+
+    @MainActor
+    private func checkHealth() async {
+        guard !isChecking else { return }
+        guard var url = store.resourceBaseURL else {
+            status = "服务尚未启动"
+            return
+        }
+        isChecking = true
+        defer { isChecking = false }
+        url.append(path: "health")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 4
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+                status = "连接异常"
+                deviceCount = nil
+                lastChecked = Date()
+                return
+            }
+            let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            status = payload?["status"] as? String == "ok" ? "运行中" : "连接正常"
+            deviceCount = (payload?["devices"] as? NSNumber)?.intValue
+            lastChecked = Date()
+        } catch {
+            status = "连接失败：\(error.localizedDescription)"
+            deviceCount = nil
+            lastChecked = Date()
         }
     }
 }
