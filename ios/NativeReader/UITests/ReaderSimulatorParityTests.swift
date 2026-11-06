@@ -21,7 +21,7 @@ final class ReaderSimulatorParityTests: XCTestCase {
         waitForExpectations(timeout: 60)
         startReading.tap()
 
-        let indicator = app.staticTexts["reader.pageIndicator"]
+        let indicator = app.descendants(matching: .any)["reader.pageIndicator"]
         XCTAssertTrue(indicator.waitForExistence(timeout: 30), "阅读页分页指示器没有出现")
         let pageSurface = app.staticTexts["reader.pageSurface"]
         XCTAssertTrue(pageSurface.waitForExistence(timeout: 10), "阅读正文没有呈现")
@@ -36,6 +36,25 @@ final class ReaderSimulatorParityTests: XCTestCase {
         XCTAssertTrue(indicator.waitForNonExistence(timeout: 10), "中间点击区没有隐藏阅读控件")
         pageSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(indicator.waitForExistence(timeout: 10), "中间点击区没有恢复阅读控件")
+
+        app.buttons["reader.settings"].tap()
+        let detailedInfo = app.buttons["详细"].firstMatch
+        XCTAssertTrue(detailedInfo.waitForExistence(timeout: 10), "阅读信息菜单没有详细模式")
+        detailedInfo.tap()
+        expectation(for: NSPredicate(format: "label CONTAINS %@", "第"), evaluatedWith: indicator)
+        waitForExpectations(timeout: 10)
+
+        app.buttons["reader.settings"].tap()
+        let hiddenInfo = app.buttons["关闭"].firstMatch
+        XCTAssertTrue(hiddenInfo.waitForExistence(timeout: 10), "阅读信息菜单没有关闭模式")
+        hiddenInfo.tap()
+        XCTAssertTrue(indicator.waitForNonExistence(timeout: 10), "关闭阅读信息后页脚仍显示")
+
+        app.buttons["reader.settings"].tap()
+        let compactInfo = app.buttons["简洁"].firstMatch
+        XCTAssertTrue(compactInfo.waitForExistence(timeout: 10), "阅读信息菜单没有简洁模式")
+        compactInfo.tap()
+        XCTAssertTrue(indicator.waitForExistence(timeout: 10), "简洁模式没有恢复页码")
 
         app.buttons["reader.settings"].tap()
         let autoTurn = app.descendants(matching: .any)["reader.autoTurn"]

@@ -3068,6 +3068,7 @@ private struct ReaderView: View {
     @AppStorage("xiaoman.reader.tapZones") private var readerTapZones = "prevPage,menu,nextPage,prevPage,menu,nextPage,prevPage,menu,nextPage"
     @AppStorage("xiaoman.reader.autoTurnSeconds") private var autoTurnSeconds = 10.0
     @AppStorage("xiaoman.reader.keepScreenOn") private var keepScreenOn = false
+    @AppStorage("xiaoman.reader.infoMode") private var readerInfoMode = "compact"
     @State private var pagedPageIndex = 0
     @State private var pagedTextOffset = 0
 
@@ -3128,12 +3129,13 @@ private struct ReaderView: View {
             } else if readerPageMode == "paged" {
                 GeometryReader { geometry in
                     let pageWidth = max(180, min(geometry.size.width - readerHorizontalPadding * 2, 720))
-                    let chromeHeight = readerChromeVisible ? 110.0 : 16.0
+                    let chromeHeight = !readerChromeVisible ? 16.0 : (readerInfoMode == "detailed" ? 110.0 : 56.0)
                     let pageHeight = max(160, geometry.size.height - chromeHeight - readerVerticalPadding * 2)
                     let pages = Self.paginatedPages(readerText, width: pageWidth, height: pageHeight, fontSize: fontSize, fontWeight: readerFontWeightValue, letterSpacing: readerLetterSpacing, lineSpacing: readerLineSpacing, paragraphSpacing: readerParagraphSpacing)
                     let visibleIndex = min(max(0, pagedPageIndex), max(0, pages.count - 1))
+                    let chapterProgress = (Double(selectedIndex) + Double(visibleIndex) / Double(max(1, pages.count))) / Double(max(1, chapters.count))
                     VStack(spacing: 0) {
-                        if readerChromeVisible {
+                        if readerChromeVisible && readerInfoMode == "detailed" {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(book.title).font(.system(size: 13, weight: .medium)).foregroundStyle(readerInk.opacity(0.65)).lineLimit(1)
                                 if chapters.indices.contains(selectedIndex) {
@@ -3155,12 +3157,25 @@ private struct ReaderView: View {
                                 performTapZone(at: value.location, width: pageWidth, height: pageHeight, pages: pages)
                             })
                             .accessibilityIdentifier("reader.pageSurface")
-                        if readerChromeVisible {
+                        if readerChromeVisible && readerInfoMode != "hidden" {
                             HStack {
                                 Button { turnPage(-1, pages: pages) } label: { Image(systemName: "chevron.left") }
                                     .disabled(pagedPageIndex == 0 && selectedIndex == 0)
                                 Spacer()
-                                Text("\(visibleIndex + 1) / \(max(1, pages.count))").font(.system(size: 12, design: .monospaced)).foregroundStyle(readerInk.opacity(0.64)).accessibilityIdentifier("reader.pageIndicator")
+                                VStack(spacing: 2) {
+                                    if readerInfoMode == "detailed" {
+                                        Text("第 \(selectedIndex + 1) / \(chapters.count) 章 · 本章页 \(visibleIndex + 1) / \(max(1, pages.count)) 页")
+                                            .font(.system(size: 10, weight: .medium)).lineLimit(1)
+                                        Text("全书 \(String(format: "%.1f", chapterProgress * 100))% · \(Date.now.formatted(date: .omitted, time: .shortened))")
+                                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(readerInk.opacity(0.58))
+                                    } else {
+                                        Text("\(visibleIndex + 1) / \(max(1, pages.count))")
+                                            .font(.system(size: 12, design: .monospaced))
+                                    }
+                                }
+                                .accessibilityElement(children: .combine)
+                                .foregroundStyle(readerInk.opacity(0.72))
+                                .accessibilityIdentifier("reader.pageIndicator")
                                 Spacer()
                                 Button { turnPage(1, pages: pages) } label: { Image(systemName: "chevron.right") }
                                     .disabled(pagedPageIndex + 1 >= pages.count && selectedIndex + 1 >= chapters.count)
@@ -3205,6 +3220,9 @@ private struct ReaderView: View {
                         pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
                     }
                     .onChange(of: readerChromeVisible) { _, _ in
+                        pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
+                    }
+                    .onChange(of: readerInfoMode) { _, _ in
                         pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
                     }
                     .task(id: "\(autoTurnEnabled)-\(autoTurnSeconds)-\(selectedIndex)-\(content.count)") {
@@ -3258,6 +3276,25 @@ private struct ReaderView: View {
                         try? await Task.sleep(for: .milliseconds(60))
                         proxy.scrollTo(target, anchor: .top)
                     }
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        if readerChromeVisible && readerInfoMode != "hidden" {
+                            HStack(spacing: 8) {
+                                Text(Date.now.formatted(date: .omitted, time: .shortened))
+                                Spacer(minLength: 4)
+                                if readerInfoMode == "detailed" {
+                                    Text("第 \(selectedIndex + 1) / \(chapters.count) 章")
+                                    Spacer(minLength: 4)
+                                }
+                                let progress = (Double(selectedIndex) + Double(lastVisibleParagraph) / Double(max(1, readerParagraphs.count))) / Double(max(1, chapters.count))
+                                Text("全书 \(String(format: "%.1f", progress * 100))%")
+                            }
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(readerInk.opacity(0.62))
+                            .padding(.horizontal, readerHorizontalPadding).padding(.vertical, 8)
+                            .frame(maxWidth: .infinity)
+                            .background(readerPaper)
+                        }
+                    }
                 }
             }
         }
@@ -3272,6 +3309,11 @@ private struct ReaderView: View {
                         Text("分页阅读").tag("paged")
                         Text("滚动阅读").tag("scroll")
                     }
+                    Picker("阅读信息", selection: $readerInfoMode) {
+                        Text("关闭").tag("hidden")
+                        Text("简洁").tag("compact")
+                        Text("详细").tag("detailed")
+                    }
                     Section("字号 · \(Int(fontSize))") { Slider(value: $fontSize, in: 16...32, step: 1) }
                     Section("行距 · \(Int(readerLineSpacing))") { Slider(value: $readerLineSpacing, in: 4...24, step: 1) }
                     Section("段间距 · \(Int(readerParagraphSpacing))") { Slider(value: $readerParagraphSpacing, in: 0...32, step: 1) }
@@ -3281,6 +3323,11 @@ private struct ReaderView: View {
                     Toggle("自动翻页", isOn: $autoTurnEnabled).accessibilityIdentifier("reader.autoTurn")
                     Section("自动翻页间隔 · \(Int(autoTurnSeconds)) 秒") { Slider(value: $autoTurnSeconds, in: 3...60, step: 1) }
                     Toggle("屏幕常亮", isOn: $keepScreenOn)
+                    Picker("阅读信息", selection: $readerInfoMode) {
+                        Text("关闭").tag("hidden")
+                        Text("简洁").tag("compact")
+                        Text("详细").tag("detailed")
+                    }
                     Picker("字重", selection: $readerFontWeightValue) {
                         Text("细").tag(300); Text("标准").tag(400); Text("适中").tag(500); Text("偏粗").tag(600); Text("粗").tag(700)
                     }
@@ -3733,6 +3780,7 @@ private struct NativeReadingPreferencesView: View {
     @AppStorage("xiaoman.reader.tapZones") private var tapZones = "prevPage,menu,nextPage,prevPage,menu,nextPage,prevPage,menu,nextPage"
     @AppStorage("xiaoman.reader.autoTurnSeconds") private var autoTurnSeconds = 10.0
     @AppStorage("xiaoman.reader.keepScreenOn") private var keepScreenOn = false
+    @AppStorage("xiaoman.reader.infoMode") private var infoMode = "compact"
 
     private let tapActions: [(String, String)] = [
         ("none", "无"), ("menu", "菜单"), ("prevPage", "上一页"), ("nextPage", "下一页"),
@@ -3819,6 +3867,11 @@ private struct NativeReadingPreferencesView: View {
                     Slider(value: $autoTurnSeconds, in: 3...60, step: 1)
                 }
                 Toggle("阅读时保持屏幕常亮", isOn: $keepScreenOn)
+                Picker("阅读信息", selection: $infoMode) {
+                    Text("关闭").tag("hidden")
+                    Text("简洁").tag("compact")
+                    Text("详细").tag("detailed")
+                }
             }
             Section {
                 Text("阅读器中也可随时调整这些选项，设置会自动保存到本机。")
