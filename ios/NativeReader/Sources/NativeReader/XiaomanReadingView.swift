@@ -986,7 +986,13 @@ private struct NativeDramaPlayerView: View {
     @State private var player: AVPlayer?
     @State private var isLoading = true
     @State private var error: String?
-    @State private var synopsis = ""
+    @State private var duration: Double = 0
+    @State private var position: Double = 0
+    @State private var seekValue: Double?
+    @State private var observer: Any?
+    @State private var showCatalog = false
+    @State private var rate = 1.0
+    @State private var showDetail = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -994,12 +1000,15 @@ private struct NativeDramaPlayerView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let player {
-                    VideoPlayer(player: player).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    NativePlayerSurface(player: player)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { togglePlayback() }
                 } else if let url = media.coverURL {
                     AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { Color.black }
                         .frame(width: geometry.size.width, height: geometry.size.height).clipped()
                 }
-                LinearGradient(colors: [.black.opacity(0.42), .clear, .clear, .black.opacity(0.72)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [.black.opacity(0.66), .clear, .clear, .black.opacity(0.16), .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
                 if isLoading { ProgressView("正在准备视频").tint(.white).foregroundStyle(.white) }
                 if let error {
@@ -1013,51 +1022,78 @@ private struct NativeDramaPlayerView: View {
                 VStack(spacing: 0) {
                     HStack(spacing: 12) {
                         Button { player?.pause(); player = nil; dismiss() } label: {
-                            Image(systemName: "chevron.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(.white)
+                            Image(systemName: "chevron.left").font(.system(size: 19, weight: .semibold)).foregroundStyle(.white).frame(width: 44, height: 48)
                         }
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(media.title).font(.headline.weight(.semibold)).foregroundStyle(.white).lineLimit(1)
-                            Text(episodes.indices.contains(selectedIndex) ? episodes[selectedIndex].title : "短剧播放").font(.caption).foregroundStyle(.white.opacity(0.8))
-                        }
+                        Text("第\(selectedIndex + 1)集").font(.system(size: 16, weight: .medium)).foregroundStyle(.white).lineLimit(1)
                         Spacer()
-                        Button { store.toggleFavorite(media) } label: {
-                            Image(systemName: store.favorites.contains(where: { $0.id == media.id }) ? "heart.fill" : "heart").font(.title3).foregroundStyle(.white)
-                        }
-                    }
-                    .padding(.horizontal, 18).padding(.top, geometry.safeAreaInsets.top + 8)
-                    Spacer()
-                    HStack(alignment: .bottom) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if !synopsis.isEmpty { Text(synopsis).font(.caption).foregroundStyle(.white.opacity(0.86)).lineLimit(2) }
-                            if !episodes.isEmpty {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(Array(episodes.enumerated()), id: \.element.id) { index, chapter in
-                                            Button { Task { await playEpisode(index) } } label: {
-                                                Text(chapter.title).font(.caption.weight(index == selectedIndex ? .semibold : .regular))
-                                                    .foregroundStyle(index == selectedIndex ? .white : .white.opacity(0.84))
-                                                    .padding(.horizontal, 12).padding(.vertical, 8)
-                                                    .background(index == selectedIndex ? Color(red: 0.94, green: 0.31, blue: 0.22) : Color.white.opacity(0.16), in: Capsule())
-                                            }.buttonStyle(.plain)
-                                        }
-                                    }
+                        Menu {
+                            ForEach([0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { value in
+                                Button(value == 1 ? "正常速度" : "\(rateLabel(value))×") {
+                                    rate = value
+                                    if player?.timeControlStatus == .playing { player?.rate = Float(value) }
                                 }
                             }
+                            Button("选集", systemImage: "list.number") { showCatalog = true }
+                            Button(store.favorites.contains(where: { $0.id == media.id }) ? "取消收藏" : "收藏", systemImage: "heart") {
+                                store.toggleFavorite(media)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis").font(.system(size: 20, weight: .semibold)).foregroundStyle(.white).frame(width: 44, height: 48)
                         }
-                        Spacer(minLength: 12)
-                        Button { Task { await playEpisode(selectedIndex + 1) } } label: {
-                            Image(systemName: "forward.end.fill").font(.title3).foregroundStyle(.white).frame(width: 40, height: 40)
-                        }
-                        .disabled(selectedIndex + 1 >= episodes.count)
                     }
-                    .padding(.horizontal, 18).padding(.bottom, geometry.safeAreaInsets.bottom + 24)
+                    .padding(.horizontal, 8).padding(.top, geometry.safeAreaInsets.top)
+                    Spacer()
+
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 0) {
+                        Button { showDetail = true } label: {
+                            HStack(spacing: 4) {
+                                Text(media.title).font(.system(size: 16, weight: .bold)).foregroundStyle(.white).lineLimit(1)
+                                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.bottom, 16)
+                        NativeDramaSeekBar(position: seekValue ?? position, duration: duration, onScrub: { seekValue = $0 }, onCommit: { value in
+                            seekValue = nil
+                            guard let player, duration > 0 else { return }
+                            player.seek(to: CMTime(seconds: value * duration, preferredTimescale: 600))
+                        })
+                        .padding(.bottom, 8)
+                        Button { showCatalog = true } label: {
+                            HStack(spacing: 4) {
+                                Text("选集").font(.system(size: 14, weight: .bold))
+                                Text("· 全\(episodes.count)集").font(.system(size: 14, weight: .bold)).lineLimit(1)
+                                Spacer()
+                                Image(systemName: "chevron.up").font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundStyle(.white).padding(.horizontal, 16).frame(height: 48)
+                            .background(Color(red: 0.09, green: 0.09, blue: 0.09).opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
+                        }.buttonStyle(.plain).disabled(episodes.isEmpty)
+                    }
+                    .padding(.horizontal, 16).padding(.bottom, geometry.safeAreaInsets.bottom + 8)
+                }
+
+                if player?.timeControlStatus != .playing && !isLoading && error == nil {
+                    Image(systemName: "play.fill").font(.system(size: 38, weight: .semibold)).foregroundStyle(.white.opacity(0.35)).allowsHitTesting(false)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .background(.black)
         .task { await loadEpisodes() }
-        .onDisappear { player?.pause() }
+        .sheet(isPresented: $showCatalog) {
+            NativeDramaCatalogSheet(media: media, episodes: episodes, selectedIndex: selectedIndex) { index in
+                showCatalog = false
+                Task { await playEpisode(index) }
+            }
+        }
+        .navigationDestination(isPresented: $showDetail) { NativeDramaDetailView(media: media, store: store) }
+        .onDisappear {
+            player?.pause()
+            if let player, let observer { player.removeTimeObserver(observer) }
+            observer = nil
+        }
     }
 
     private func loadEpisodes() async {
@@ -1068,8 +1104,6 @@ private struct NativeDramaPlayerView: View {
                 isLoading = false
                 return
             }
-            let extra = try? await store.mediaDetails(for: media)
-            synopsis = extra?["简介"] ?? extra?["作品简介"] ?? ""
             await playEpisode(initialIndex)
         } catch {
             self.error = error.localizedDescription
@@ -1079,6 +1113,8 @@ private struct NativeDramaPlayerView: View {
 
     private func playEpisode(_ index: Int) async {
         guard episodes.indices.contains(index) else { return }
+        if let current = player, let observer { current.removeTimeObserver(observer) }
+        observer = nil
         player?.pause()
         isLoading = true
         error = nil
@@ -1087,12 +1123,88 @@ private struct NativeDramaPlayerView: View {
             selectedIndex = index
             let next = AVPlayer(url: url)
             player = next
-            next.play()
+            attachTimeObserver(to: next)
+            next.playImmediately(atRate: Float(rate))
             store.recordMediaHistory(media)
         } catch {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func attachTimeObserver(to player: AVPlayer) {
+        observer = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main) { time in
+            guard time.seconds.isFinite else { return }
+            position = time.seconds
+            if let seconds = player.currentItem?.duration.seconds, seconds.isFinite, seconds > 0 { duration = seconds }
+        }
+    }
+
+    private func togglePlayback() {
+        guard let player else { return }
+        if player.timeControlStatus == .playing { player.pause() }
+        else { player.playImmediately(atRate: Float(rate)) }
+    }
+
+    private func rateLabel(_ value: Double) -> String { String(format: "%g", value) }
+}
+
+private struct NativeDramaSeekBar: View {
+    let position: Double
+    let duration: Double
+    let onScrub: (Double) -> Void
+    let onCommit: (Double) -> Void
+    @State private var dragging = false
+    var body: some View {
+        GeometryReader { geometry in
+            let progress = duration > 0 ? min(1, max(0, position / duration)) : 0
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.3)).frame(height: 2)
+                Capsule().fill(Color(red: 0.98, green: 0.40, blue: 0.15)).frame(width: geometry.size.width * progress, height: 3)
+                Circle().fill(.white).frame(width: dragging ? 9 : 6, height: dragging ? 9 : 6).offset(x: max(0, geometry.size.width * progress - 3))
+            }
+            .frame(height: 30)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                guard duration > 0 else { return }
+                dragging = true
+                onScrub(min(1, max(0, value.location.x / max(1, geometry.size.width))) * duration)
+            }.onEnded { value in
+                dragging = false
+                let fraction = min(1, max(0, value.location.x / max(1, geometry.size.width)))
+                onCommit(fraction)
+            })
+        }
+        .frame(height: 30)
+    }
+}
+
+private struct NativeDramaCatalogSheet: View {
+    let media: NativeBook
+    let episodes: [NativeChapter]
+    let selectedIndex: Int
+    let onSelect: (Int) -> Void
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            List(Array(episodes.enumerated()), id: \.element.id) { index, episode in
+                Button { onSelect(index) } label: {
+                    HStack(spacing: 12) {
+                        Text(String(format: "%02d", index + 1)).font(.system(size: 12, weight: .medium, design: .monospaced)).foregroundStyle(.secondary).frame(width: 28, alignment: .leading)
+                        Text(episode.title).font(.system(size: 15, weight: index == selectedIndex ? .semibold : .regular)).foregroundStyle(index == selectedIndex ? Color(red: 0.94, green: 0.31, blue: 0.22) : .primary)
+                        Spacer()
+                        if index == selectedIndex { Image(systemName: "waveform").foregroundStyle(Color(red: 0.94, green: 0.31, blue: 0.22)) }
+                    }
+                }.buttonStyle(.plain)
+            }
+            .listStyle(.plain)
+            .navigationTitle("选集 · \(media.title)")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 
