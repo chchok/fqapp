@@ -3054,6 +3054,7 @@ private struct ReaderView: View {
     @State private var showingReaderDirectory = false
     @State private var autoTurnEnabled = false
     @State private var priorIdleTimerDisabled = false
+    @StateObject private var systemSpeech = NativeSystemSpeechController()
     @AppStorage("xiaoman.reader.fontSize") private var fontSize = 18.0
     @AppStorage("xiaoman.reader.lineSpacing") private var readerLineSpacing = 10.0
     @AppStorage("xiaoman.reader.paper") private var readerPaperID = "warm"
@@ -3069,6 +3070,7 @@ private struct ReaderView: View {
     @AppStorage("xiaoman.reader.autoTurnSeconds") private var autoTurnSeconds = 10.0
     @AppStorage("xiaoman.reader.keepScreenOn") private var keepScreenOn = false
     @AppStorage("xiaoman.reader.infoMode") private var readerInfoMode = "compact"
+    @AppStorage("xiaoman.reader.systemSpeechRate") private var systemSpeechRate = 1.0
     @State private var pagedPageIndex = 0
     @State private var pagedTextOffset = 0
 
@@ -3327,6 +3329,26 @@ private struct ReaderView: View {
             ToolbarItem(placement: .automatic) { Button("加入书架", systemImage: "books.vertical") { addToShelf() } }
             ToolbarItem(placement: .automatic) {
                 Menu {
+                    Button(systemSpeech.actionTitle, systemImage: systemSpeech.actionSymbol) {
+                        systemSpeech.toggle(text: readerText, rate: systemSpeechRate)
+                    }
+                    .accessibilityIdentifier("reader.systemSpeech.toggle")
+                    if systemSpeech.status != .idle {
+                        Button("停止朗读", systemImage: "stop.fill", role: .destructive) {
+                            systemSpeech.stop()
+                        }
+                        .accessibilityIdentifier("reader.systemSpeech.stop")
+                    }
+                    Section("朗读语速 · \(systemSpeechRate, specifier: "%.1f")×") {
+                        Slider(value: $systemSpeechRate, in: 0.5...3, step: 0.1)
+                            .accessibilityIdentifier("reader.systemSpeech.rate")
+                    }
+                } label: { Image(systemName: "headphones") }
+                    .accessibilityLabel("系统朗读")
+                    .accessibilityIdentifier("reader.systemSpeech")
+            }
+            ToolbarItem(placement: .automatic) {
+                Menu {
                     Picker("翻页模式", selection: $readerPageMode) {
                         Text("分页阅读").tag("paged")
                         Text("滚动阅读").tag("scroll")
@@ -3386,6 +3408,7 @@ private struct ReaderView: View {
         .onDisappear {
             positionSaveTask?.cancel()
             savePosition(paragraphIndex: lastVisibleParagraph)
+            systemSpeech.stop()
             store.endReadingSession()
             #if os(iOS)
             UIApplication.shared.isIdleTimerDisabled = priorIdleTimerDisabled
@@ -3412,6 +3435,7 @@ private struct ReaderView: View {
 
     private func openChapter(_ index: Int) async {
         guard chapters.indices.contains(index) else { return }
+        systemSpeech.stop()
         positionSaveTask?.cancel()
         if !content.isEmpty { savePosition(paragraphIndex: lastVisibleParagraph) }
         isLoading = true
@@ -3547,6 +3571,96 @@ private struct ReaderView: View {
         }
         if result.isEmpty { return [(NSRange(location: 0, length: source.length), text)] }
         return result
+    }
+}
+
+@MainActor
+private final class NativeSystemSpeechController: NSObject, ObservableObject, @preconcurrency AVSpeechSynthesizerDelegate {
+    enum Status { case idle, speaking, paused }
+
+    @Published private(set) var status: Status = .idle
+    private let synthesizer = AVSpeechSynthesizer()
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    var actionTitle: String {
+        switch status {
+        case .idle: "开始系统朗读"
+        case .speaking: "暂停朗读"
+        case .paused: "继续朗读"
+        }
+    }
+
+    var actionSymbol: String {
+        switch status {
+        case .idle: "play.fill"
+        case .speaking: "pause.fill"
+        case .paused: "play.fill"
+        }
+    }
+
+    func toggle(text: String, rate: Double) {
+        switch status {
+        case .speaking:
+            synthesizer.pauseSpeaking(at: .word)
+            status = .paused
+        case .paused:
+            if synthesizer.continueSpeaking() { status = .speaking }
+        case .idle:
+            let chunks = Self.chunks(text, maximumCharacters: 180)
+            guard !chunks.isEmpty else { return }
+            #if os(iOS)
+            let audioSession = AVAudioSession.sharedInstance()
+            try? audioSession.setCategory(.playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
+            DispatchQueue.global(qos: .userInitiated).async {
+                try? audioSession.setActive(true)
+            }
+            #endif
+            for chunk in chunks {
+                let utterance = AVSpeechUtterance(string: chunk)
+                utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+                let defaultRate = Double(AVSpeechUtteranceDefaultSpeechRate)
+                let minimumRate = Double(AVSpeechUtteranceMinimumSpeechRate)
+                let maximumRate = Double(AVSpeechUtteranceMaximumSpeechRate)
+                let mappedRate = rate <= 1
+                    ? minimumRate + (rate - 0.5) / 0.5 * (defaultRate - minimumRate)
+                    : defaultRate + (rate - 1) / 2 * (maximumRate - defaultRate)
+                utterance.rate = Float(min(maximumRate, max(minimumRate, mappedRate)))
+                synthesizer.speak(utterance)
+            }
+            status = .speaking
+        }
+    }
+
+    func stop() {
+        synthesizer.stopSpeaking(at: .immediate)
+        status = .idle
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        if !synthesizer.isSpeaking { status = .idle }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        if !synthesizer.isSpeaking { status = .idle }
+    }
+
+    private static func chunks(_ text: String, maximumCharacters: Int) -> [String] {
+        var chunks: [String] = []
+        var current = ""
+        for character in text {
+            current.append(character)
+            if current.count >= maximumCharacters ||
+                current.count >= 120 && ".!?。！？；;，,、\n".contains(character) {
+                chunks.append(current)
+                current = ""
+            }
+        }
+        if !current.isEmpty { chunks.append(current) }
+        return chunks
     }
 }
 

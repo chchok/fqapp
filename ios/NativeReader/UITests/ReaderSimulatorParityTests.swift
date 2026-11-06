@@ -76,5 +76,17 @@ final class ReaderSimulatorParityTests: XCTestCase {
         scrollMode.tap()
         XCTAssertTrue(app.buttons["reader.previousChapter"].waitForExistence(timeout: 10), "滚动正文末尾没有上一章入口")
         XCTAssertTrue(app.buttons["reader.nextChapter"].exists, "滚动正文没有下一章入口")
+
+        let speechMenu = app.buttons["reader.systemSpeech"]
+        XCTAssertTrue(speechMenu.waitForExistence(timeout: 10), "阅读页没有系统朗读入口")
+        speechMenu.tap()
+        let startSpeech = app.buttons["reader.systemSpeech.toggle"]
+        XCTAssertTrue(startSpeech.waitForExistence(timeout: 10), "系统朗读菜单没有开始按钮")
+        startSpeech.tap()
+        speechMenu.tap()
+        let pauseSpeech = app.buttons["reader.systemSpeech.toggle"]
+        XCTAssertTrue(pauseSpeech.waitForExistence(timeout: 10), "开始朗读后没有暂停状态")
+        XCTAssertEqual(pauseSpeech.label, "暂停朗读")
+        app.buttons["reader.systemSpeech.stop"].tap()
     }
 }
