@@ -6,6 +6,7 @@ public struct XiaomanReadingView: View {
     @State private var selection: AppTab = .home
     @State private var query = ""
     @State private var showingSearch = false
+    @State private var showingCategories = false
     @State private var selectedBook: NativeBook?
     @State private var selectedMedia: NativeBook?
 
@@ -14,7 +15,7 @@ public struct XiaomanReadingView: View {
     public var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                HomeView(query: $query, store: store, onSearch: { showingSearch = true }) { item in
+                HomeView(query: $query, store: store, onSearch: { showingSearch = true }, onCategories: { showingCategories = true }) { item in
                     if item.kind == "book" { selectedBook = item }
                     else { selectedMedia = item }
                 }
@@ -58,6 +59,17 @@ public struct XiaomanReadingView: View {
                     .toolbar { ToolbarItem(placement: .automatic) { Button("完成") { showingSearch = false } } }
             }
         }
+        .sheet(isPresented: $showingCategories) {
+            NavigationStack {
+                CategoryBrowserView(store: store) { term in
+                    query = term
+                    showingCategories = false
+                    showingSearch = true
+                }
+                .navigationTitle("分类")
+                .toolbar { ToolbarItem(placement: .automatic) { Button("完成") { showingCategories = false } } }
+            }
+        }
     }
 
     private func select(_ item: NativeBook) {
@@ -88,6 +100,7 @@ private struct HomeView: View {
     @Binding var query: String
     @ObservedObject var store: NativeReadingStore
     let onSearch: () -> Void
+    let onCategories: () -> Void
     let onSelect: (NativeBook) -> Void
     @State private var selectedTab = 0
 
@@ -103,6 +116,8 @@ private struct HomeView: View {
                         .onSubmit(onSearch)
                     Button(action: onSearch) { Image(systemName: "arrow.right.circle.fill").font(.title3) }
                         .accessibilityLabel("开始搜索")
+                    Button(action: onCategories) { Image(systemName: "square.grid.2x2.fill").font(.title3) }
+                        .accessibilityLabel("浏览分类")
                 }
                 .padding(12)
                 .background(groupedBackground, in: RoundedRectangle(cornerRadius: 14))
@@ -160,6 +175,59 @@ private struct HomeView: View {
         .onChange(of: store.homeTabs.count) { _, count in
             if selectedTab >= count { selectedTab = 0 }
         }
+    }
+}
+
+private struct CategoryBrowserView: View {
+    @ObservedObject var store: NativeReadingStore
+    let onChoose: (String) -> Void
+    @State private var selectedChannel = "1"
+    private let columns = [GridItem(.adaptive(minimum: 104), spacing: 10)]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(store.categoryChannels) { channel in
+                            Button {
+                                selectedChannel = channel.id
+                                Task { await store.loadCategories(channel: channel.id) }
+                            } label: {
+                                Text(channel.title).padding(.horizontal, 14).padding(.vertical, 9)
+                                    .foregroundStyle(selectedChannel == channel.id ? .white : .primary)
+                                    .background(selectedChannel == channel.id ? Color(red: 0.72, green: 0.36, blue: 0.24) : groupedBackground, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                if store.categoriesLoading && store.categoryTiles.isEmpty {
+                    ProgressView("正在加载分类").frame(maxWidth: .infinity, minHeight: 170)
+                } else if let message = store.categoriesMessage, store.categoryTiles.isEmpty {
+                    ContentUnavailableView(message, systemImage: "square.grid.2x2", description: Text("切换频道或稍后重试。"))
+                } else {
+                    Text("热门分类").font(.headline)
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        ForEach(store.categoryTiles) { tile in
+                            Button { onChoose(tile.title) } label: {
+                                HStack(spacing: 6) {
+                                    if tile.isHot { Image(systemName: "flame.fill").foregroundStyle(.orange) }
+                                    Text(tile.title).lineLimit(1)
+                                }
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity, minHeight: 42)
+                                .background(groupedBackground, in: RoundedRectangle(cornerRadius: 9))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .background(appBackground)
+        .task { await store.loadCategories(channel: selectedChannel) }
     }
 }
 

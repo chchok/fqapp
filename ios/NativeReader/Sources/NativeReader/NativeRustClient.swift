@@ -9,6 +9,18 @@ struct NativeHomeTab: Identifiable, Hashable {
     let type: Int
 }
 
+struct NativeCategoryChannel: Identifiable, Hashable {
+    let id: String
+    let title: String
+}
+
+struct NativeCategoryTile: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let dimension: String
+    let isHot: Bool
+}
+
 struct NativeChapter: Identifiable, Hashable {
     let id: String
     let title: String
@@ -45,6 +57,10 @@ final class NativeReadingStore: ObservableObject {
     @Published private(set) var homeItems: [NativeBook] = []
     @Published private(set) var homeLoading = false
     @Published private(set) var homeMessage: String?
+    @Published private(set) var categoryChannels: [NativeCategoryChannel] = []
+    @Published private(set) var categoryTiles: [NativeCategoryTile] = []
+    @Published private(set) var categoriesLoading = false
+    @Published private(set) var categoriesMessage: String?
     @Published private(set) var shelf: [NativeBook] = UserDefaults.standard.data(forKey: "xiaoman.shelf").flatMap { try? JSONDecoder().decode([NativeBook].self, from: $0) } ?? []
     @Published private(set) var isLoading = false
     @Published private(set) var message: String?
@@ -131,6 +147,24 @@ final class NativeReadingStore: ObservableObject {
         return try await Task.detached(priority: .userInitiated) {
             try Self.fetchMediaDetails(item)
         }.value
+    }
+
+    func loadCategories(channel: String = "1") async {
+        guard !categoriesLoading else { return }
+        categoriesLoading = true
+        categoriesMessage = nil
+        defer { categoriesLoading = false }
+        do {
+            try await initializeIfNeeded()
+            let result = try await Task.detached(priority: .userInitiated) {
+                try Self.fetchCategories(channel: channel)
+            }.value
+            categoryChannels = result.channels
+            categoryTiles = result.tiles
+            if result.tiles.isEmpty { categoriesMessage = "此分类暂时没有条目" }
+        } catch {
+            categoriesMessage = error.localizedDescription
+        }
     }
 
     private func initializeIfNeeded() async throws {
@@ -236,6 +270,28 @@ final class NativeReadingStore: ObservableObject {
         }
         walk(payload, depth: 0)
         return result
+    }
+
+    nonisolated private static func fetchCategories(channel: String) throws -> (channels: [NativeCategoryChannel], tiles: [NativeCategoryTile]) {
+        let payload = try performJSONRequest(path: "/api/v1/category", parameters: [URLQueryItem(name: "category_tab", value: channel)])
+        guard let root = payload as? [String: Any], let data = root["data"] as? [String: Any] else { return ([], []) }
+        let rule = data["rule"] as? [String: Any] ?? [:]
+        var channels = (rule["tab"] as? [[String: Any]] ?? []).compactMap { raw -> NativeCategoryChannel? in
+            guard let title = string(raw, keys: ["name", "title"], fallback: [:]), !title.isEmpty else { return nil }
+            let id = string(raw, keys: ["value", "id"], fallback: [:]) ?? "1"
+            return NativeCategoryChannel(id: id, title: title)
+        }
+        for (id, title) in [("6", "短剧"), ("5", "漫画")] where !channels.contains(where: { $0.id == id }) {
+            channels.append(NativeCategoryChannel(id: id, title: title))
+        }
+        let tiles = (data["down_category"] as? [[String: Any]] ?? []).compactMap { raw -> NativeCategoryTile? in
+            guard let title = string(raw, keys: ["name", "title"], fallback: [:]), !title.isEmpty else { return nil }
+            let id = string(raw, keys: ["id", "category_id"], fallback: [:]) ?? title
+            let dimension = string(raw, keys: ["dim"], fallback: [:]) ?? ""
+            let hot = string(raw, keys: ["tag"], fallback: [:]) == "1"
+            return NativeCategoryTile(id: id, title: title, dimension: dimension, isHot: hot)
+        }
+        return (channels, tiles)
     }
 
     nonisolated private static func performSearch(_ query: String) throws -> [NativeBook] {

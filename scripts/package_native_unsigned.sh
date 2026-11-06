@@ -19,7 +19,7 @@ cat > "$OUT/README.md" <<'NOTES'
 - `ios/XiaomanReading-iOS-unsigned.ipa`：iOS 真机 Release 包；未签名，需要用开发者证书重签后安装。
 - `macos/XiaomanReading-macOS-unsigned.zip`：Intel 与 Apple Silicon 通用 macOS Release App；未签名，正式分发需签名和公证。
 
-当前预览包括原生首页推荐与六类频道、短剧入口、搜索、作品卡片与基础详情、小说目录和章节阅读、本地书架及阅读进度。内容通过仓库内同一 Rust 核心请求。
+当前预览包括原生首页推荐与六类频道、分类浏览、短剧入口、搜索、作品卡片与基础详情、小说目录和章节阅读、本地书架及阅读进度。内容通过仓库内同一 Rust 核心请求。
 
 尚未移植完成：短剧/漫剧播放与剧集详情、漫画阅读、听书播放与后台控制、分类和排行榜、完整书架/收藏管理、评论互动、离线下载与多设备同步。此预览不代表 Android 功能已全部覆盖。
 NOTES
