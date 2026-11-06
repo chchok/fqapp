@@ -39,7 +39,20 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C01F0848C3A5619470FC8660"
+               BuildableName = "XiaomanReading-iOS-UITests.xctest"
+               BlueprintName = "XiaomanReading-iOS-UITests"
+               ReferencedContainer = "container:XiaomanReading.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

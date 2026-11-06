@@ -138,8 +138,7 @@ private struct NativeDock: View {
                     .foregroundStyle(active ? accent : Color.primary.opacity(0.68))
                     .frame(width: itemWidth, height: 48)
                     .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                }.buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 6)
@@ -245,6 +244,7 @@ private struct HomeView: View {
                                 ForEach(visibleItems) { item in
                                     Button { onSelect(item) } label: { HomeMediaCard(item: item, width: cardWidth) }
                                         .buttonStyle(.plain)
+                                        .accessibilityIdentifier("home.book.\(item.id)")
                                 }
                             }
                             .padding(.horizontal, gutter)
@@ -357,7 +357,8 @@ private struct NativeHomeRankShelf: View {
                         Text("完整榜单").font(.system(size: 12, weight: .medium))
                         Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
                     }.foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
-                }.buttonStyle(.plain)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 10)
 
@@ -428,7 +429,7 @@ private struct NativeHomeRankShelf: View {
                         Image(systemName: "arrow.up.right").font(.system(size: 16, weight: .medium)).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
                     }
                     .frame(height: 78).padding(.horizontal, 16).contentShape(Rectangle())
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plain).accessibilityIdentifier("home.book.\(book.id)")
             }
 
             HStack(spacing: 8) {
@@ -690,7 +691,8 @@ private struct NativeContinueRow: View {
                 .padding(.leading, 14).padding(.vertical, 11).padding(.trailing, 8)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+                            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.continueReading")
             if percent > 0 {
                 Text("\(percent)%")
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
@@ -920,6 +922,7 @@ private struct DramaView: View {
                                 ForEach(items) { item in
                                     Button { onSelect(item) } label: { HomeMediaCard(item: item, width: itemWidth, radius: 10) }
                                         .buttonStyle(.plain)
+                                        .accessibilityIdentifier("home.book.\(item.id)")
                                 }
                             }
                             .padding(.horizontal, 12)
@@ -948,7 +951,7 @@ private struct DramaView: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
-                            .buttonStyle(.plain)
+            .buttonStyle(.plain)
                             VStack(spacing: 18) {
                                 Button { store.toggleFavorite(items[feedIndex]) } label: {
                                     Image(systemName: store.favorites.contains(where: { $0.id == items[feedIndex].id }) ? "heart.fill" : "heart")
@@ -1692,7 +1695,7 @@ private struct NativeMangaDetailView: View {
                     Text(loading ? "正在加载章节" : "开始阅读")
                         .font(.system(size: 14, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 42)
                         .foregroundStyle(.white).background(loading || chapters.isEmpty ? muted : Color(red: 0.94, green: 0.31, blue: 0.22), in: Capsule())
-                }.buttonStyle(.plain).disabled(loading || chapters.isEmpty)
+                }.buttonStyle(.plain).disabled(loading || chapters.isEmpty).accessibilityIdentifier("mangaReader.startReading")
             }
             .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 10)
             .background(Color(red: 0.99, green: 0.98, blue: 0.96).overlay(alignment: .top) { Rectangle().fill(line).frame(height: 1) })
@@ -2825,7 +2828,7 @@ private struct BookDetailView: View {
                     Text(loading ? "正在加载目录" : (chapters.isEmpty ? "开始阅读" : startReadingTitle))
                         .font(.system(size: 14, weight: .semibold)).lineLimit(1).frame(maxWidth: .infinity, minHeight: 42)
                         .foregroundStyle(.white).background(loading || chapters.isEmpty ? muted : Color(red: 0.94, green: 0.31, blue: 0.22), in: Capsule())
-                }.buttonStyle(.plain).disabled(loading || chapters.isEmpty)
+                }.buttonStyle(.plain).disabled(loading || chapters.isEmpty).accessibilityIdentifier("bookDetail.startReading")
             }
             .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 10)
             .background(Color(red: 0.99, green: 0.98, blue: 0.96).overlay(alignment: .top) { Rectangle().fill(line).frame(height: 1) })
@@ -3015,6 +3018,7 @@ private struct NativeChapterDirectoryView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("chapter.row.\(chapter.id)")
             }
             .listStyle(.plain)
             .searchable(text: $query, prompt: "搜索章节")
@@ -3146,12 +3150,13 @@ private struct ReaderView: View {
                             .gesture(SpatialTapGesture().onEnded { value in
                                 performTapZone(at: value.location, width: pageWidth, height: pageHeight, pages: pages)
                             })
+                            .accessibilityIdentifier("reader.pageSurface")
                         if readerChromeVisible {
                             HStack {
                                 Button { turnPage(-1, pages: pages) } label: { Image(systemName: "chevron.left") }
                                     .disabled(pagedPageIndex == 0 && selectedIndex == 0)
                                 Spacer()
-                                Text("\(visibleIndex + 1) / \(max(1, pages.count))").font(.system(size: 12, design: .monospaced)).foregroundStyle(readerInk.opacity(0.64))
+                                Text("\(visibleIndex + 1) / \(max(1, pages.count))").font(.system(size: 12, design: .monospaced)).foregroundStyle(readerInk.opacity(0.64)).accessibilityIdentifier("reader.pageIndicator")
                                 Spacer()
                                 Button { turnPage(1, pages: pages) } label: { Image(systemName: "chevron.right") }
                                     .disabled(pagedPageIndex + 1 >= pages.count && selectedIndex + 1 >= chapters.count)
@@ -3278,6 +3283,7 @@ private struct ReaderView: View {
                         }
                     }
                 } label: { Image(systemName: "textformat.size") }
+                    .accessibilityIdentifier("reader.settings")
             }
             }
         }

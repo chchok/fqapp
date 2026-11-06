@@ -39,6 +39,17 @@ targets:
         HEADER_SEARCH_PATHS: $(inherited) $(SRCROOT)/../NativeApp
         OTHER_LDFLAGS[sdk=iphoneos*]: $(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_ios.a -framework Security -framework CoreFoundation -lz -liconv
         OTHER_LDFLAGS[sdk=iphonesimulator*]: $(inherited) -force_load $(SRCROOT)/../Frameworks/libfqapi_core_iphonesimulator.a -framework Security -framework CoreFoundation -lz -liconv
+  XiaomanReading-iOS-UITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: XiaomanReading-iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chchok.xiaomanreading.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
   XiaomanReading-macOS:
     type: application
     platform: macOS
@@ -72,6 +83,9 @@ schemes:
     build:
       targets:
         XiaomanReading-iOS: all
+    test:
+      targets:
+        - XiaomanReading-iOS-UITests
   XiaomanReading-macOS:
     build:
       targets:

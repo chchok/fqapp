@@ -30,6 +30,7 @@
 		A8D8C540BFF0AF46BB1EB217 /* sp_aes.c in Sources */ = {isa = PBXBuildFile; fileRef = C5A8719188A6941652D50B1E /* sp_aes.c */; settings = {COMPILER_FLAGS = "-DCBC=0 -DCTR=0 -DECB=1"; }; };
 		B4A932D74F7EBEB52669AAF4 /* NativeLibraryBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8215D09185FEBF1A7162F7D6 /* NativeLibraryBackupView.swift */; };
 		B5F65E33AAD6EFD0F4D3FA36 /* filter.json in Resources */ = {isa = PBXBuildFile; fileRef = 3926E4E598CA1922AB839F88 /* filter.json */; };
+		B99C781591828011BAE8536B /* ReaderSimulatorParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23F847020302B30318C07B77 /* ReaderSimulatorParityTests.swift */; };
 		C27C6839C8D765A41CD17AEC /* XiaomanReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */; };
 		C53CFACDC0E93B22DF80D88E /* NativeZip.c in Sources */ = {isa = PBXBuildFile; fileRef = C7A04BDF77574DEF58E19FF2 /* NativeZip.c */; };
 		CFC20218E6DEF3D25522E502 /* mp4_cenc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4F5712DD53A9A3DD6B9F6053 /* mp4_cenc.c */; };
@@ -37,7 +38,19 @@
 		F2C67B4AC4BFAB60AC64E806 /* NativeEPUBImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958F460DB1B672F9772DF156 /* NativeEPUBImporter.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		55885E6A8F87DC62C00AD89A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7EDB512F9BEFAE610EFAB73F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F9DA0A7CD9A76498EFA71A56;
+			remoteInfo = "XiaomanReading-iOS";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		23F847020302B30318C07B77 /* ReaderSimulatorParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderSimulatorParityTests.swift; sourceTree = "<group>"; };
+		2619E459A9D4257C0FA9D2EB /* XiaomanReading-iOS-UITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "XiaomanReading-iOS-UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		293C81243CE9D7A6C2C2D549 /* sp_stream.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sp_stream.c; sourceTree = "<group>"; };
 		3926E4E598CA1922AB839F88 /* filter.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = filter.json; sourceTree = "<group>"; };
 		3AD223DA881BDC9A6D54F978 /* AppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
@@ -70,6 +83,7 @@
 		4C8BE73E046A04490E16358B /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				2619E459A9D4257C0FA9D2EB /* XiaomanReading-iOS-UITests.xctest */,
 				66FDB8A29C216968C1300A1C /* XiaomanReading-iOS.app */,
 				420B69D2DF1725C9D264BDCC /* XiaomanReading-macOS.app */,
 			);
@@ -94,6 +108,7 @@
 				CCC82FCD6C42874F3467C92D /* NativeReader */,
 				1C88120AD2618C3EA4EEF468 /* Resources */,
 				D947C543C46CB5C39DD2A758 /* tiny_aes */,
+				F4E547162A8BAD00612E0017 /* UITests */,
 				4C8BE73E046A04490E16358B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -133,9 +148,35 @@
 			path = ../../native/third_party/tiny_aes;
 			sourceTree = "<group>";
 		};
+		F4E547162A8BAD00612E0017 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				23F847020302B30318C07B77 /* ReaderSimulatorParityTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		C01F0848C3A5619470FC8660 /* XiaomanReading-iOS-UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8AF7A3150BEBFEDB69B93A83 /* Build configuration list for PBXNativeTarget "XiaomanReading-iOS-UITests" */;
+			buildPhases = (
+				8A8D4918C3DD364FDB024ECF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC38EFA46F8A1B4AF2B24D19 /* PBXTargetDependency */,
+			);
+			name = "XiaomanReading-iOS-UITests";
+			packageProductDependencies = (
+			);
+			productName = "XiaomanReading-iOS-UITests";
+			productReference = 2619E459A9D4257C0FA9D2EB /* XiaomanReading-iOS-UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		CF48F9C1679D61B2B101F2CF /* XiaomanReading-macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7DF43FCF04800DBAFDF008DF /* Build configuration list for PBXNativeTarget "XiaomanReading-macOS" */;
@@ -181,6 +222,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					C01F0848C3A5619470FC8660 = {
+						TestTargetID = F9DA0A7CD9A76498EFA71A56;
+					};
 				};
 			};
 			buildConfigurationList = 3FA873F5FF8A1C1E19F490F5 /* Build configuration list for PBXProject "XiaomanReading" */;
@@ -198,6 +242,7 @@
 			projectRoot = "";
 			targets = (
 				F9DA0A7CD9A76498EFA71A56 /* XiaomanReading-iOS */,
+				C01F0848C3A5619470FC8660 /* XiaomanReading-iOS-UITests */,
 				CF48F9C1679D61B2B101F2CF /* XiaomanReading-macOS */,
 			);
 		};
@@ -263,7 +308,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8A8D4918C3DD364FDB024ECF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B99C781591828011BAE8536B /* ReaderSimulatorParityTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DC38EFA46F8A1B4AF2B24D19 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F9DA0A7CD9A76498EFA71A56 /* XiaomanReading-iOS */;
+			targetProxy = 55885E6A8F87DC62C00AD89A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0D0B563C124B2042095692B7 /* Debug */ = {
@@ -351,6 +412,40 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		48F24021371EFEA7F2CF3317 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chchok.xiaomanreading.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "XiaomanReading-iOS";
+			};
+			name = Debug;
+		};
+		63BF91108AE470BC28CB51B0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chchok.xiaomanreading.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "XiaomanReading-iOS";
+			};
+			name = Release;
 		};
 		751763479B654F4B2714A1EB /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -497,6 +592,15 @@
 			buildConfigurations = (
 				EC540FDA3481D709DFC8122A /* Debug */,
 				C85D3BE45247D4ED292118C8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8AF7A3150BEBFEDB69B93A83 /* Build configuration list for PBXNativeTarget "XiaomanReading-iOS-UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48F24021371EFEA7F2CF3317 /* Debug */,
+				63BF91108AE470BC28CB51B0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
