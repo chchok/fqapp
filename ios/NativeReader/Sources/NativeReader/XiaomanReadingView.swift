@@ -3278,7 +3278,7 @@ private struct ReaderView: View {
                     Section("左右边距 · \(Int(readerHorizontalPadding))") { Slider(value: $readerHorizontalPadding, in: 12...40, step: 1) }
                     Section("上下边距 · \(Int(readerVerticalPadding))") { Slider(value: $readerVerticalPadding, in: 0...48, step: 1) }
                     Section("字距 · \(readerLetterSpacing, specifier: "%.1f")") { Slider(value: $readerLetterSpacing, in: -0.5...3, step: 0.1) }
-                    Toggle("自动翻页", isOn: $autoTurnEnabled)
+                    Toggle("自动翻页", isOn: $autoTurnEnabled).accessibilityIdentifier("reader.autoTurn")
                     Section("自动翻页间隔 · \(Int(autoTurnSeconds)) 秒") { Slider(value: $autoTurnSeconds, in: 3...60, step: 1) }
                     Toggle("屏幕常亮", isOn: $keepScreenOn)
                     Picker("字重", selection: $readerFontWeightValue) {

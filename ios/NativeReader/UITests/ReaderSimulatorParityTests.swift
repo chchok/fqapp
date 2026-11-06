@@ -3,6 +3,7 @@ import XCTest
 final class ReaderSimulatorParityTests: XCTestCase {
     func testOpenBookAndUseReaderTapZones() throws {
         let app = XCUIApplication()
+        app.launchArguments += ["-xiaoman.reader.autoTurnSeconds", "3"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["什锦铺"].waitForExistence(timeout: 30))
@@ -35,5 +36,13 @@ final class ReaderSimulatorParityTests: XCTestCase {
         XCTAssertTrue(indicator.waitForNonExistence(timeout: 10), "中间点击区没有隐藏阅读控件")
         pageSurface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(indicator.waitForExistence(timeout: 10), "中间点击区没有恢复阅读控件")
+
+        app.buttons["reader.settings"].tap()
+        let autoTurn = app.descendants(matching: .any)["reader.autoTurn"]
+        XCTAssertTrue(autoTurn.waitForExistence(timeout: 10), "阅读设置中没有自动翻页开关")
+        let pageBeforeAutoTurn = pageSurface.label
+        autoTurn.tap()
+        expectation(for: NSPredicate(format: "label != %@", pageBeforeAutoTurn), evaluatedWith: pageSurface)
+        waitForExpectations(timeout: 8)
     }
 }
