@@ -7,27 +7,54 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		07F4FDC2F6414DE29D6AA65A /* sp_aes.c in Sources */ = {isa = PBXBuildFile; fileRef = C5A8719188A6941652D50B1E /* sp_aes.c */; settings = {COMPILER_FLAGS = "-DCBC=0 -DCTR=0 -DECB=1"; }; };
 		1607B300251616E35AAA7A89 /* config.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F6C42C9FBB1180F980C2150 /* config.json */; };
+		323FD9FE9E763C90EEA6A9E0 /* sp_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = 293C81243CE9D7A6C2C2D549 /* sp_stream.c */; };
 		3A1C0A0EB4808A05549240A9 /* NativeRustClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */; };
+		482F7F5BE5FE0007D52FF0D7 /* NativeZip.c in Sources */ = {isa = PBXBuildFile; fileRef = C7A04BDF77574DEF58E19FF2 /* NativeZip.c */; };
 		490BC9C9AEC4F478A94311B6 /* NativeRustClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */; };
+		524C47208DEDA5FA5D1BF1E8 /* sp_error.c in Sources */ = {isa = PBXBuildFile; fileRef = CE3D44C9780C018F639ADBAA /* sp_error.c */; };
+		5B65B8341DD5499E57412AA6 /* NativeCENCResourceLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF19AB7395C25EB7FF6EFA20 /* NativeCENCResourceLoader.swift */; };
 		5FBFAA93BC69AE3EF5439665 /* XiaomanReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */; };
 		617A3EE27F6FA2CBABF09CE3 /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD223DA881BDC9A6D54F978 /* AppMain.swift */; };
+		61D28CCB8A4C11FE40C17334 /* sp_stream.c in Sources */ = {isa = PBXBuildFile; fileRef = 293C81243CE9D7A6C2C2D549 /* sp_stream.c */; };
+		634462D9171D909B2D14D82E /* aes.c in Sources */ = {isa = PBXBuildFile; fileRef = 946CCFE55ECA96BC002B22E0 /* aes.c */; settings = {COMPILER_FLAGS = "-DCBC=0 -DCTR=0 -DECB=1"; }; };
+		65C5890E47C5CA3442006813 /* sp_error.c in Sources */ = {isa = PBXBuildFile; fileRef = CE3D44C9780C018F639ADBAA /* sp_error.c */; };
 		8961E7FD3FEC79427115D1DF /* filter.json in Resources */ = {isa = PBXBuildFile; fileRef = 3926E4E598CA1922AB839F88 /* filter.json */; };
 		8C048BBE1DD0174DA59DEE4F /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD223DA881BDC9A6D54F978 /* AppMain.swift */; };
+		927E43B5E3331517CCAE9CF3 /* NativeCENCResourceLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF19AB7395C25EB7FF6EFA20 /* NativeCENCResourceLoader.swift */; };
+		9564FC0816BCBCAFE42283D6 /* NativeLibraryBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8215D09185FEBF1A7162F7D6 /* NativeLibraryBackupView.swift */; };
+		995AD6518EECF4B2AB33A11A /* NativeEPUBImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958F460DB1B672F9772DF156 /* NativeEPUBImporter.swift */; };
+		9B14181DD040DCCFA86D69A6 /* aes.c in Sources */ = {isa = PBXBuildFile; fileRef = 946CCFE55ECA96BC002B22E0 /* aes.c */; settings = {COMPILER_FLAGS = "-DCBC=0 -DCTR=0 -DECB=1"; }; };
 		9D5A681835B9C2DB4BB7661B /* config.json in Resources */ = {isa = PBXBuildFile; fileRef = 7F6C42C9FBB1180F980C2150 /* config.json */; };
+		A8D8C540BFF0AF46BB1EB217 /* sp_aes.c in Sources */ = {isa = PBXBuildFile; fileRef = C5A8719188A6941652D50B1E /* sp_aes.c */; settings = {COMPILER_FLAGS = "-DCBC=0 -DCTR=0 -DECB=1"; }; };
+		B4A932D74F7EBEB52669AAF4 /* NativeLibraryBackupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8215D09185FEBF1A7162F7D6 /* NativeLibraryBackupView.swift */; };
 		B5F65E33AAD6EFD0F4D3FA36 /* filter.json in Resources */ = {isa = PBXBuildFile; fileRef = 3926E4E598CA1922AB839F88 /* filter.json */; };
 		C27C6839C8D765A41CD17AEC /* XiaomanReadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */; };
+		C53CFACDC0E93B22DF80D88E /* NativeZip.c in Sources */ = {isa = PBXBuildFile; fileRef = C7A04BDF77574DEF58E19FF2 /* NativeZip.c */; };
+		CFC20218E6DEF3D25522E502 /* mp4_cenc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4F5712DD53A9A3DD6B9F6053 /* mp4_cenc.c */; };
+		D34F4B432001F1EC5F974FDC /* mp4_cenc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4F5712DD53A9A3DD6B9F6053 /* mp4_cenc.c */; };
+		F2C67B4AC4BFAB60AC64E806 /* NativeEPUBImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958F460DB1B672F9772DF156 /* NativeEPUBImporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		293C81243CE9D7A6C2C2D549 /* sp_stream.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sp_stream.c; sourceTree = "<group>"; };
 		3926E4E598CA1922AB839F88 /* filter.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = filter.json; sourceTree = "<group>"; };
 		3AD223DA881BDC9A6D54F978 /* AppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
 		420B69D2DF1725C9D264BDCC /* XiaomanReading-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "XiaomanReading-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4F5712DD53A9A3DD6B9F6053 /* mp4_cenc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mp4_cenc.c; sourceTree = "<group>"; };
 		66FDB8A29C216968C1300A1C /* XiaomanReading-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "XiaomanReading-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XiaomanReadingView.swift; sourceTree = "<group>"; };
 		7F6C42C9FBB1180F980C2150 /* config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = config.json; sourceTree = "<group>"; };
+		8215D09185FEBF1A7162F7D6 /* NativeLibraryBackupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLibraryBackupView.swift; sourceTree = "<group>"; };
+		946CCFE55ECA96BC002B22E0 /* aes.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = aes.c; sourceTree = "<group>"; };
+		958F460DB1B672F9772DF156 /* NativeEPUBImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeEPUBImporter.swift; sourceTree = "<group>"; };
 		973F6A05A84C17EB8180EE6A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeRustClient.swift; sourceTree = "<group>"; };
+		AF19AB7395C25EB7FF6EFA20 /* NativeCENCResourceLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCENCResourceLoader.swift; sourceTree = "<group>"; };
+		C5A8719188A6941652D50B1E /* sp_aes.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sp_aes.c; sourceTree = "<group>"; };
+		C7A04BDF77574DEF58E19FF2 /* NativeZip.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = NativeZip.c; sourceTree = "<group>"; };
+		CE3D44C9780C018F639ADBAA /* sp_error.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sp_error.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -62,21 +89,48 @@
 		9D243282A2198BA1EBE44FE7 = {
 			isa = PBXGroup;
 			children = (
+				C3C6E81496AA69D48E550708 /* crypto_core */,
 				7CC9FE88E8803390EEFCA57F /* NativeApp */,
 				CCC82FCD6C42874F3467C92D /* NativeReader */,
 				1C88120AD2618C3EA4EEF468 /* Resources */,
+				D947C543C46CB5C39DD2A758 /* tiny_aes */,
 				4C8BE73E046A04490E16358B /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		C3C6E81496AA69D48E550708 /* crypto_core */ = {
+			isa = PBXGroup;
+			children = (
+				4F5712DD53A9A3DD6B9F6053 /* mp4_cenc.c */,
+				C5A8719188A6941652D50B1E /* sp_aes.c */,
+				CE3D44C9780C018F639ADBAA /* sp_error.c */,
+				293C81243CE9D7A6C2C2D549 /* sp_stream.c */,
+			);
+			name = crypto_core;
+			path = ../../native/crypto_core;
 			sourceTree = "<group>";
 		};
 		CCC82FCD6C42874F3467C92D /* NativeReader */ = {
 			isa = PBXGroup;
 			children = (
+				AF19AB7395C25EB7FF6EFA20 /* NativeCENCResourceLoader.swift */,
+				958F460DB1B672F9772DF156 /* NativeEPUBImporter.swift */,
+				8215D09185FEBF1A7162F7D6 /* NativeLibraryBackupView.swift */,
 				9B116B3ADA00AD02D0FBC7E7 /* NativeRustClient.swift */,
+				C7A04BDF77574DEF58E19FF2 /* NativeZip.c */,
 				7BE1BA155B7984F3D5E14A6E /* XiaomanReadingView.swift */,
 			);
 			name = NativeReader;
 			path = Sources/NativeReader;
+			sourceTree = "<group>";
+		};
+		D947C543C46CB5C39DD2A758 /* tiny_aes */ = {
+			isa = PBXGroup;
+			children = (
+				946CCFE55ECA96BC002B22E0 /* aes.c */,
+			);
+			name = tiny_aes;
+			path = ../../native/third_party/tiny_aes;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -176,8 +230,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				617A3EE27F6FA2CBABF09CE3 /* AppMain.swift in Sources */,
+				927E43B5E3331517CCAE9CF3 /* NativeCENCResourceLoader.swift in Sources */,
+				F2C67B4AC4BFAB60AC64E806 /* NativeEPUBImporter.swift in Sources */,
+				B4A932D74F7EBEB52669AAF4 /* NativeLibraryBackupView.swift in Sources */,
 				3A1C0A0EB4808A05549240A9 /* NativeRustClient.swift in Sources */,
+				482F7F5BE5FE0007D52FF0D7 /* NativeZip.c in Sources */,
 				C27C6839C8D765A41CD17AEC /* XiaomanReadingView.swift in Sources */,
+				9B14181DD040DCCFA86D69A6 /* aes.c in Sources */,
+				D34F4B432001F1EC5F974FDC /* mp4_cenc.c in Sources */,
+				A8D8C540BFF0AF46BB1EB217 /* sp_aes.c in Sources */,
+				524C47208DEDA5FA5D1BF1E8 /* sp_error.c in Sources */,
+				323FD9FE9E763C90EEA6A9E0 /* sp_stream.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,8 +249,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				8C048BBE1DD0174DA59DEE4F /* AppMain.swift in Sources */,
+				5B65B8341DD5499E57412AA6 /* NativeCENCResourceLoader.swift in Sources */,
+				995AD6518EECF4B2AB33A11A /* NativeEPUBImporter.swift in Sources */,
+				9564FC0816BCBCAFE42283D6 /* NativeLibraryBackupView.swift in Sources */,
 				490BC9C9AEC4F478A94311B6 /* NativeRustClient.swift in Sources */,
+				C53CFACDC0E93B22DF80D88E /* NativeZip.c in Sources */,
 				5FBFAA93BC69AE3EF5439665 /* XiaomanReadingView.swift in Sources */,
+				634462D9171D909B2D14D82E /* aes.c in Sources */,
+				CFC20218E6DEF3D25522E502 /* mp4_cenc.c in Sources */,
+				07F4FDC2F6414DE29D6AA65A /* sp_aes.c in Sources */,
+				65C5890E47C5CA3442006813 /* sp_error.c in Sources */,
+				61D28CCB8A4C11FE40C17334 /* sp_stream.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -15,6 +15,13 @@ targets:
     sources:
       - path: Sources/NativeReader
       - path: ../NativeApp/AppMain.swift
+      - path: ../../native/crypto_core/sp_error.c
+      - path: ../../native/crypto_core/sp_stream.c
+      - path: ../../native/crypto_core/mp4_cenc.c
+      - path: ../../native/crypto_core/sp_aes.c
+        compilerFlags: "-DCBC=0 -DCTR=0 -DECB=1"
+      - path: ../../native/third_party/tiny_aes/aes.c
+        compilerFlags: "-DCBC=0 -DCTR=0 -DECB=1"
       - path: ../NativeApp/Info.plist
         buildPhase: none
       - path: Resources/config.json
@@ -38,6 +45,13 @@ targets:
     sources:
       - path: Sources/NativeReader
       - path: ../NativeApp/AppMain.swift
+      - path: ../../native/crypto_core/sp_error.c
+      - path: ../../native/crypto_core/sp_stream.c
+      - path: ../../native/crypto_core/mp4_cenc.c
+      - path: ../../native/crypto_core/sp_aes.c
+        compilerFlags: "-DCBC=0 -DCTR=0 -DECB=1"
+      - path: ../../native/third_party/tiny_aes/aes.c
+        compilerFlags: "-DCBC=0 -DCTR=0 -DECB=1"
       - path: ../NativeApp/Info.plist
         buildPhase: none
       - path: Resources/config.json

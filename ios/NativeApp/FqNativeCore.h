@@ -2,6 +2,7 @@
 #define FQ_NATIVE_CORE_H
 #include <stddef.h>
 #include <stdint.h>
+#include "../../native/crypto_core/sp_crypto.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,6 +12,9 @@ char *fq_native_resource_base_url(void);
 char *fq_native_request(const char *method, const char *path, const char *query, const uint8_t *body, size_t body_len);
 char *fq_native_shutdown(void);
 void fq_native_string_free(char *value);
+int fq_native_inflate_zip_data(int method, const uint8_t *source, size_t source_len,
+                               uint8_t *destination, size_t destination_len,
+                               uint32_t expected_crc32);
 #ifdef __cplusplus
 }
 #endif
