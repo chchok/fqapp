@@ -3,27 +3,39 @@ import SwiftUI
 /// SwiftUI interface shared by the iPhone, iPad, and Mac apps.
 public struct XiaomanReadingView: View {
     @StateObject private var store = NativeReadingStore()
-    @State private var selection: AppTab = .shelf
+    @State private var selection: AppTab = .home
     @State private var query = ""
+    @State private var showingSearch = false
     @State private var selectedBook: NativeBook?
+    @State private var selectedMedia: NativeBook?
 
     public init() {}
 
     public var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                ShelfView(books: store.shelf, onSelect: { selectedBook = $0 })
+                HomeView(query: $query, store: store, onSearch: { showingSearch = true }) { item in
+                    if item.kind == "book" { selectedBook = item }
+                    else { selectedMedia = item }
+                }
                     .navigationTitle("小满阅读")
+            }
+            .tabItem { Label("首页", systemImage: "house") }
+            .tag(AppTab.home)
+
+            NavigationStack {
+                DramaView(store: store) { item in selectedMedia = item }
+                    .navigationTitle("短剧")
+            }
+            .tabItem { Label("短剧", systemImage: "play.rectangle") }
+            .tag(AppTab.drama)
+
+            NavigationStack {
+                ShelfView(books: store.shelf, onSelect: { select($0) })
+                    .navigationTitle("书架")
             }
             .tabItem { Label("书架", systemImage: "books.vertical") }
             .tag(AppTab.shelf)
-
-            NavigationStack {
-                SearchView(query: $query, store: store, onSelect: { selectedBook = $0 })
-                    .navigationTitle("书城")
-            }
-            .tabItem { Label("书城", systemImage: "magnifyingglass") }
-            .tag(AppTab.discover)
 
             NavigationStack {
                 SettingsView().navigationTitle("我的")
@@ -35,10 +47,26 @@ public struct XiaomanReadingView: View {
         .sheet(item: $selectedBook) { book in
             NavigationStack { ReaderView(book: book, store: store, addToShelf: { store.addToShelf(book) }) }
         }
+        .sheet(item: $selectedMedia) { media in NavigationStack { MediaPreviewView(media: media) } }
+        .sheet(isPresented: $showingSearch) {
+            NavigationStack {
+                SearchView(query: $query, store: store, onSelect: { item in
+                    showingSearch = false
+                    select(item)
+                })
+                    .navigationTitle("搜索")
+                    .toolbar { ToolbarItem(placement: .automatic) { Button("完成") { showingSearch = false } } }
+            }
+        }
+    }
+
+    private func select(_ item: NativeBook) {
+        if item.kind == "book" { selectedBook = item }
+        else { selectedMedia = item }
     }
 }
 
-private enum AppTab: Hashable { case shelf, discover, me }
+private enum AppTab: Hashable { case home, drama, shelf, me }
 
 private var groupedBackground: Color {
     #if os(iOS)
@@ -46,6 +74,210 @@ private var groupedBackground: Color {
     #else
     Color(nsColor: .windowBackgroundColor)
     #endif
+}
+
+private var appBackground: Color {
+    #if os(iOS)
+    Color(uiColor: .systemBackground)
+    #else
+    Color(nsColor: .windowBackgroundColor)
+    #endif
+}
+
+private struct HomeView: View {
+    @Binding var query: String
+    @ObservedObject var store: NativeReadingStore
+    let onSearch: () -> Void
+    let onSelect: (NativeBook) -> Void
+    @State private var selectedTab = 0
+
+    private let columns = [GridItem(.adaptive(minimum: 145), spacing: 14)]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("搜索书名、作者或作品编号", text: $query)
+                        .submitLabel(.search)
+                        .onSubmit(onSearch)
+                    Button(action: onSearch) { Image(systemName: "arrow.right.circle.fill").font(.title3) }
+                        .accessibilityLabel("开始搜索")
+                }
+                .padding(12)
+                .background(groupedBackground, in: RoundedRectangle(cornerRadius: 14))
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(store.homeTabs.enumerated()), id: \.element.id) { index, tab in
+                            Button {
+                                selectedTab = index
+                                Task { await store.loadHome(tabIndex: index) }
+                            } label: {
+                                Text(tab.title).font(.subheadline.weight(selectedTab == index ? .semibold : .regular))
+                                    .padding(.horizontal, 15).padding(.vertical, 8)
+                                    .foregroundStyle(selectedTab == index ? .white : .primary)
+                                    .background(selectedTab == index ? Color(red: 0.72, green: 0.36, blue: 0.24) : groupedBackground, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(selectedTab < store.homeTabs.count ? store.homeTabs[selectedTab].title : "推荐")
+                            .font(.title2.weight(.bold))
+                        Text("为你发现好作品").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { Task { await store.loadHome(tabIndex: selectedTab, force: true) } } label: {
+                        Image(systemName: "arrow.clockwise").padding(9).background(groupedBackground, in: Circle())
+                    }
+                    .accessibilityLabel("刷新推荐")
+                }
+
+                if store.homeLoading && store.homeItems.isEmpty {
+                    ProgressView("正在加载推荐")
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                } else if let message = store.homeMessage, store.homeItems.isEmpty {
+                    ContentUnavailableView(message, systemImage: "books.vertical", description: Text("稍后重试，或直接搜索作品。"))
+                        .frame(minHeight: 220)
+                } else {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                        ForEach(store.homeItems) { item in
+                            Button { onSelect(item) } label: { HomeMediaCard(item: item) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+        }
+        .background(appBackground)
+        .refreshable { await store.loadHome(tabIndex: selectedTab, force: true) }
+        .task { await store.loadHome(tabIndex: selectedTab) }
+        .onChange(of: store.homeTabs.count) { _, count in
+            if selectedTab >= count { selectedTab = 0 }
+        }
+    }
+}
+
+private struct DramaView: View {
+    @ObservedObject var store: NativeReadingStore
+    let onSelect: (NativeBook) -> Void
+    @State private var tabIndex: Int?
+    private let columns = [GridItem(.adaptive(minimum: 145), spacing: 14)]
+
+    private var dramaIndex: Int {
+        store.homeTabs.firstIndex(where: { $0.type == 8 || $0.title.contains("短剧") || $0.title.contains("看剧") }) ?? 2
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("短剧与漫剧").font(.title2.weight(.bold))
+                        Text("番茄内容源实时推荐").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { Task { await store.loadHome(tabIndex: tabIndex ?? dramaIndex, force: true) } } label: {
+                        Image(systemName: "arrow.clockwise").padding(9).background(groupedBackground, in: Circle())
+                    }
+                    .accessibilityLabel("刷新短剧")
+                }
+                if store.homeLoading && store.homeItems.isEmpty {
+                    ProgressView("正在加载短剧").frame(maxWidth: .infinity, minHeight: 180)
+                } else if let message = store.homeMessage, store.homeItems.isEmpty {
+                    ContentUnavailableView(message, systemImage: "play.rectangle", description: Text("请稍后重试，或前往首页搜索作品。"))
+                } else {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                        ForEach(store.homeItems) { item in
+                            Button { onSelect(item) } label: { HomeMediaCard(item: item) }.buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .background(appBackground)
+        .refreshable { await store.loadHome(tabIndex: tabIndex ?? dramaIndex, force: true) }
+        .task {
+            let index = dramaIndex
+            tabIndex = index
+            await store.loadHome(tabIndex: index)
+        }
+        .onChange(of: store.homeTabs) { _, _ in
+            guard tabIndex == nil else { return }
+            let index = dramaIndex
+            tabIndex = index
+            Task { await store.loadHome(tabIndex: index) }
+        }
+    }
+}
+
+private struct HomeMediaCard: View {
+    let item: NativeBook
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .bottomLeading) {
+                if let url = item.coverURL {
+                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: {
+                        RoundedRectangle(cornerRadius: 12).fill(item.color.gradient)
+                    }
+                } else {
+                    RoundedRectangle(cornerRadius: 12).fill(item.color.gradient)
+                        .overlay(Image(systemName: "book.closed.fill").font(.largeTitle).foregroundStyle(.white.opacity(0.8)))
+                }
+                Text(item.category).font(.caption2.weight(.medium)).padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(.ultraThinMaterial, in: Capsule()).padding(8)
+            }
+            .frame(height: 188).clipShape(RoundedRectangle(cornerRadius: 12))
+            Text(item.title).font(.subheadline.weight(.semibold)).lineLimit(2).foregroundStyle(.primary)
+            if !item.author.isEmpty { Text(item.author).font(.caption).lineLimit(1).foregroundStyle(.secondary) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(9).background(.background, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+private struct MediaPreviewView: View {
+    let media: NativeBook
+    @StateObject private var store = NativeReadingStore()
+    @State private var details: [String: String] = [:]
+    @State private var loading = true
+    @State private var error: String?
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HomeMediaCard(item: media).frame(maxWidth: 300).frame(maxWidth: .infinity)
+                Text(media.title).font(.title2.bold())
+                if loading { ProgressView("正在读取作品详情") }
+                if let error { ContentUnavailableView("详情暂时无法加载", systemImage: "wifi.exclamationmark", description: Text(error)) }
+                ForEach(details.keys.sorted(), id: \.self) { key in
+                    if let value = details[key], !value.isEmpty {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(key).font(.caption).foregroundStyle(.secondary)
+                            Text(value).font(.body).textSelection(.enabled)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12).background(groupedBackground, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+                Text("作品详情来自 fqapp 内容服务；原生播放和互动功能仍在移植中。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(20)
+        }
+        .task {
+            do { details = try await store.mediaDetails(for: media); error = nil }
+            catch { self.error = error.localizedDescription }
+            loading = false
+        }
+        .toolbar { ToolbarItem(placement: .automatic) { Button("完成") { dismiss() } } }
+    }
 }
 
 private struct ShelfView: View {

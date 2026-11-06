@@ -3,6 +3,12 @@ import Foundation
 import Combine
 import Security
 
+struct NativeHomeTab: Identifiable, Hashable {
+    let id: Int
+    let title: String
+    let type: Int
+}
+
 struct NativeChapter: Identifiable, Hashable {
     let id: String
     let title: String
@@ -13,6 +19,7 @@ struct NativeBook: Identifiable, Hashable, Codable {
     let title: String
     let author: String
     let category: String
+    let kind: String
     let coverURL: URL?
 
     var progress: String { UserDefaults.standard.string(forKey: "xiaoman.progress.\(id)").map { "读至 \($0)" } ?? "尚未阅读" }
@@ -22,14 +29,28 @@ struct NativeBook: Identifiable, Hashable, Codable {
     }
 }
 
+private let nativeFallbackHomeTabs = [
+    NativeHomeTab(id: 0, title: "推荐", type: 2),
+    NativeHomeTab(id: 1, title: "小说", type: 2),
+    NativeHomeTab(id: 2, title: "短剧", type: 8),
+    NativeHomeTab(id: 3, title: "漫剧", type: 24),
+    NativeHomeTab(id: 4, title: "漫画", type: 9),
+    NativeHomeTab(id: 5, title: "听书", type: 5)
+]
+
 @MainActor
 final class NativeReadingStore: ObservableObject {
     @Published private(set) var results: [NativeBook] = []
+    @Published private(set) var homeTabs: [NativeHomeTab] = nativeFallbackHomeTabs
+    @Published private(set) var homeItems: [NativeBook] = []
+    @Published private(set) var homeLoading = false
+    @Published private(set) var homeMessage: String?
     @Published private(set) var shelf: [NativeBook] = UserDefaults.standard.data(forKey: "xiaoman.shelf").flatMap { try? JSONDecoder().decode([NativeBook].self, from: $0) } ?? []
     @Published private(set) var isLoading = false
     @Published private(set) var message: String?
     private var initialized = false
     private var lastQuery = ""
+    private var loadedHomeTab: Int?
 
     func recordProgress(for book: NativeBook, chapter: NativeChapter) {
         UserDefaults.standard.set(chapter.title, forKey: "xiaoman.progress.\(book.id)")
@@ -61,6 +82,32 @@ final class NativeReadingStore: ObservableObject {
         }.value
     }
 
+    func loadHome(tabIndex: Int = 0, force: Bool = false) async {
+        guard force || loadedHomeTab != tabIndex else { return }
+        guard !homeLoading else { return }
+        homeLoading = true
+        homeMessage = nil
+        defer { homeLoading = false }
+        do {
+            try await initializeIfNeeded()
+            let tabs = homeTabs
+              let tab = tabs.indices.contains(tabIndex) ? tabs[tabIndex] : nativeFallbackHomeTabs[0]
+            guard tab.type > 1 else {
+                homeItems = []
+                homeMessage = "此分类暂不支持直接推荐，请使用搜索查看作品。"
+                return
+            }
+            let result = try await Task.detached(priority: .userInitiated) {
+                try Self.performHome(tab: tab, tabIndex: tabIndex)
+            }.value
+            homeItems = result.items
+            loadedHomeTab = tabIndex
+            if homeItems.isEmpty { homeMessage = "该分类暂时没有推荐内容" }
+        } catch {
+            homeMessage = error.localizedDescription
+        }
+    }
+
     func search(_ query: String) async {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty, query != lastQuery else { return }
@@ -77,6 +124,13 @@ final class NativeReadingStore: ObservableObject {
         } catch {
             message = error.localizedDescription
         }
+    }
+
+    func mediaDetails(for item: NativeBook) async throws -> [String: String] {
+        try await initializeIfNeeded()
+        return try await Task.detached(priority: .userInitiated) {
+            try Self.fetchMediaDetails(item)
+        }.value
     }
 
     private func initializeIfNeeded() async throws {
@@ -140,6 +194,48 @@ final class NativeReadingStore: ObservableObject {
                 }
             }
         }
+    }
+
+    nonisolated private static func performHome(tab: NativeHomeTab, tabIndex: Int) throws -> (tabs: [NativeHomeTab], items: [NativeBook]) {
+        let payload = try performJSONRequest(path: "/api/v1/recommend/homepage", parameters: [
+            URLQueryItem(name: "tab_type", value: String(tab.type)),
+            URLQueryItem(name: "offset", value: "0"),
+            URLQueryItem(name: "tab_index", value: String(tabIndex)),
+            URLQueryItem(name: "last_tab_index", value: String(tabIndex))
+        ])
+        return (nativeFallbackHomeTabs, parseBooks(payload, category: tab.title))
+    }
+
+    nonisolated private static func fetchMediaDetails(_ item: NativeBook) throws -> [String: String] {
+        let route: String
+        switch item.kind {
+        case "video", "manju": route = "/api/v1/videos/\(item.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.id)/detail"
+        case "audio": route = "/api/v1/audio/books/\(item.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.id)"
+        case "manga": route = "/api/v1/books/\(item.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.id)/detail"
+        default: route = "/api/v1/books/\(item.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? item.id)/detail"
+        }
+        let payload = try performJSONRequest(path: route, parameters: [])
+        var result: [String: String] = ["作品类型": item.category]
+        let names: [(String, String)] = [
+            ("作者", "author"), ("简介", "series_intro"), ("作品简介", "abstract"),
+            ("分类", "category_name"), ("状态", "creation_status"),
+            ("集数", "episode_count"), ("评分", "score"), ("字数", "word_number"),
+            ("追剧人数", "followed_cnt"), ("标签", "tags")
+        ]
+        func walk(_ value: Any, depth: Int) {
+            guard depth < 8 else { return }
+            if let map = value as? [String: Any] {
+                for (label, key) in names where result[label] == nil {
+                    if let text = string(map, keys: [key], fallback: [:]) { result[label] = text }
+                    else if let list = map[key] as? [String], !list.isEmpty { result[label] = list.joined(separator: "、") }
+                }
+                for (key, child) in map where ["data", "book_data", "video_detail", "series_detail", "detail"].contains(key) {
+                    walk(child, depth: depth + 1)
+                }
+            }
+        }
+        walk(payload, depth: 0)
+        return result
     }
 
     nonisolated private static func performSearch(_ query: String) throws -> [NativeBook] {
@@ -239,7 +335,7 @@ final class NativeReadingStore: ObservableObject {
         return NativeHTTPResponse(status: status, body: body)
     }
 
-    nonisolated private static func parseBooks(_ payload: Any) -> [NativeBook] {
+    nonisolated private static func parseBooks(_ payload: Any, category: String? = nil) -> [NativeBook] {
         var output: [NativeBook] = []
         var seen = Set<String>()
         func visit(_ value: Any, depth: Int) {
@@ -259,13 +355,21 @@ final class NativeReadingStore: ObservableObject {
             }
         }
         func add(_ card: [String: Any], fallback: [String: Any]) {
-            let id = string(card, keys: ["book_id", "item_id", "id", "cell_id"], fallback: fallback) ?? ""
+            let id = string(card, keys: ["series_id_str", "pseries_id", "audio_book_id", "audio_id", "manga_id", "comic_id", "book_id", "video_id", "vid", "item_id", "id", "cell_id"], fallback: fallback) ?? ""
             guard !id.isEmpty, seen.insert(id).inserted else { return }
             let title = string(card, keys: ["title", "book_name", "name"], fallback: fallback) ?? ""
             guard !title.isEmpty else { return }
             let author = string(card, keys: ["author", "author_name"], fallback: fallback) ?? ""
-            let cover = string(card, keys: ["cover", "thumb_url", "thumb", "cover_url"], fallback: fallback) ?? ""
-            output.append(NativeBook(id: id, title: title, author: author, category: "小说", coverURL: URL(string: cover)))
+            let cover = string(card, keys: ["series_cover", "cover", "thumb_url", "thumb", "cover_url", "poster"], fallback: fallback) ?? ""
+            let kind: String
+            if ["series_id", "series_id_str", "pseries_id", "video_id", "vid"].contains(where: { card[$0] != nil || fallback[$0] != nil }) { kind = "video" }
+            else if ["audio_book_id", "audio_id", "album_id"].contains(where: { card[$0] != nil || fallback[$0] != nil }) { kind = "audio" }
+            else if ["manga_id", "comic_id"].contains(where: { card[$0] != nil || fallback[$0] != nil }) { kind = "manga" }
+            else { kind = "book" }
+            let inferredCategory = kind == "video" ? "短剧" : kind == "audio" ? "听书" : kind == "manga" ? "漫画" : "小说"
+            let displayKind = category ?? inferredCategory
+            let finalKind = displayKind == "漫剧" ? "manju" : displayKind == "漫画" ? "manga" : displayKind == "听书" ? "audio" : displayKind == "短剧" ? "video" : kind
+            output.append(NativeBook(id: id, title: title, author: author, category: displayKind, kind: finalKind, coverURL: URL(string: cover)))
         }
         visit(payload, depth: 0)
         return output
