@@ -1,5 +1,10 @@
 import SwiftUI
 import AVKit
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 
 /// SwiftUI interface shared by the iPhone, iPad, and Mac apps.
 public struct XiaomanReadingView: View {
@@ -466,10 +471,10 @@ private struct DramaView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .top) {
-                if isFeed, items.indices.contains(feedIndex), let cover = items[feedIndex].coverURL {
-                    AsyncImage(url: cover) { image in image.resizable().scaledToFill() } placeholder: { Color.black }
-                        .frame(width: geometry.size.width, height: geometry.size.height).clipped()
-                        .overlay(Color.black.opacity(0.24))
+                if isFeed, items.indices.contains(feedIndex) {
+                    NativeDramaInlinePlayer(media: items[feedIndex], store: store)
+                        .id(items[feedIndex].id)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
                         .ignoresSafeArea()
                 } else {
                     (isFeed ? Color.black : Color(red: 0.957, green: 0.953, blue: 0.937)).ignoresSafeArea()
@@ -529,7 +534,7 @@ private struct DramaView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
-                    .gesture(DragGesture(minimumDistance: 36).onEnded { value in
+                    .simultaneousGesture(DragGesture(minimumDistance: 36).onEnded { value in
                         if value.translation.height < -50, feedIndex + 1 < items.count { feedIndex += 1 }
                         else if value.translation.height > 50, feedIndex > 0 { feedIndex -= 1 }
                     })
@@ -597,6 +602,130 @@ private struct DramaView: View {
         }
     }
 }
+
+/// The Android recommendation feed starts the first episode inline and toggles
+/// playback on a tap. AVPlayerLayer keeps the native feed free of system player
+/// chrome so the surrounding SwiftUI controls retain the Android page layout.
+private struct NativeDramaInlinePlayer: View {
+    let media: NativeBook
+    @ObservedObject var store: NativeReadingStore
+    @State private var player: AVPlayer?
+    @State private var loading = true
+    @State private var error: String?
+    @State private var playing = false
+
+    var body: some View {
+        ZStack {
+            if let player {
+                NativePlayerSurface(player: player)
+                    .ignoresSafeArea()
+            } else if let cover = media.coverURL {
+                AsyncImage(url: cover) { image in image.resizable().scaledToFill() }
+                    placeholder: { NativeCoverPlaceholder(item: media) }
+                    .ignoresSafeArea()
+            } else {
+                NativeCoverPlaceholder(item: media).ignoresSafeArea()
+            }
+            LinearGradient(colors: [.black.opacity(0.06), .clear, .clear, .black.opacity(0.38)], startPoint: .top, endPoint: .bottom)
+                .allowsHitTesting(false)
+            if loading {
+                ProgressView().tint(.white).scaleEffect(1.1)
+            } else if let error {
+                VStack(spacing: 8) {
+                    Image(systemName: "wifi.exclamationmark").font(.system(size: 24))
+                    Text(error).font(.system(size: 12)).multilineTextAlignment(.center).lineLimit(3)
+                    Button("重试") { Task { await startPlayback() } }
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 14).padding(.vertical, 7)
+                        .background(.white.opacity(0.2), in: Capsule())
+                }
+                .foregroundStyle(.white)
+                .padding(16)
+                .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+            } else if !playing {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(20)
+                    .background(.black.opacity(0.3), in: Circle())
+                    .allowsHitTesting(false)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { togglePlayback() }
+        .task(id: media.id) { await startPlayback() }
+        .onDisappear { player?.pause(); playing = false }
+    }
+
+    private func togglePlayback() {
+        guard let player else { return }
+        if playing { player.pause() } else { player.play() }
+        playing.toggle()
+    }
+
+    @MainActor private func startPlayback() async {
+        player?.pause()
+        player = nil
+        loading = true
+        error = nil
+        do {
+            let episodes = try await store.directory(for: media)
+            guard let first = episodes.first else {
+                error = "剧集目录为空"
+                loading = false
+                return
+            }
+            let url = try await store.videoURL(for: first)
+            guard !Task.isCancelled else { return }
+            let nextPlayer = AVPlayer(url: url)
+            player = nextPlayer
+            nextPlayer.play()
+            playing = true
+            store.recordMediaHistory(media)
+        } catch {
+            if !Task.isCancelled { self.error = error.localizedDescription }
+        }
+        loading = false
+    }
+}
+
+#if os(iOS)
+private struct NativePlayerSurface: UIViewRepresentable {
+    let player: AVPlayer
+    func makeUIView(context: Context) -> NativePlayerUIView {
+        let view = NativePlayerUIView()
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        return view
+    }
+    func updateUIView(_ view: NativePlayerUIView, context: Context) { view.playerLayer.player = player }
+}
+
+private final class NativePlayerUIView: UIView {
+    override class var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+}
+#else
+private struct NativePlayerSurface: NSViewRepresentable {
+    let player: AVPlayer
+    func makeNSView(context: Context) -> NativePlayerNSView {
+        let view = NativePlayerNSView()
+        view.playerLayer.player = player
+        return view
+    }
+    func updateNSView(_ view: NativePlayerNSView, context: Context) { view.playerLayer.player = player }
+}
+
+private final class NativePlayerNSView: NSView {
+    override var wantsUpdateLayer: Bool { true }
+    override func makeBackingLayer() -> CALayer {
+        let layer = AVPlayerLayer()
+        layer.videoGravity = .resizeAspectFill
+        return layer
+    }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+}
+#endif
 
 private struct HomeMediaCard: View {
     let item: NativeBook
