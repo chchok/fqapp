@@ -3052,6 +3052,8 @@ private struct ReaderView: View {
     @State private var isLoading = true
     @State private var readerChromeVisible = true
     @State private var showingReaderDirectory = false
+    @State private var autoTurnEnabled = false
+    @State private var priorIdleTimerDisabled = false
     @AppStorage("xiaoman.reader.fontSize") private var fontSize = 18.0
     @AppStorage("xiaoman.reader.lineSpacing") private var readerLineSpacing = 10.0
     @AppStorage("xiaoman.reader.paper") private var readerPaperID = "warm"
@@ -3064,6 +3066,8 @@ private struct ReaderView: View {
     @AppStorage("xiaoman.reader.titleSize") private var readerTitleSize = 20.0
     @AppStorage("xiaoman.reader.titleAlignment") private var readerTitleAlignment = "start"
     @AppStorage("xiaoman.reader.tapZones") private var readerTapZones = "prevPage,menu,nextPage,prevPage,menu,nextPage,prevPage,menu,nextPage"
+    @AppStorage("xiaoman.reader.autoTurnSeconds") private var autoTurnSeconds = 10.0
+    @AppStorage("xiaoman.reader.keepScreenOn") private var keepScreenOn = false
     @State private var pagedPageIndex = 0
     @State private var pagedTextOffset = 0
 
@@ -3203,6 +3207,14 @@ private struct ReaderView: View {
                     .onChange(of: readerChromeVisible) { _, _ in
                         pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
                     }
+                    .task(id: "\(autoTurnEnabled)-\(autoTurnSeconds)-\(selectedIndex)-\(content.count)") {
+                        guard autoTurnEnabled else { return }
+                        while !Task.isCancelled {
+                            try? await Task.sleep(for: .seconds(autoTurnSeconds))
+                            guard !Task.isCancelled else { return }
+                            turnPage(1, pages: pages)
+                        }
+                    }
                 }
             } else {
                 ScrollViewReader { proxy in
@@ -3266,6 +3278,9 @@ private struct ReaderView: View {
                     Section("左右边距 · \(Int(readerHorizontalPadding))") { Slider(value: $readerHorizontalPadding, in: 12...40, step: 1) }
                     Section("上下边距 · \(Int(readerVerticalPadding))") { Slider(value: $readerVerticalPadding, in: 0...48, step: 1) }
                     Section("字距 · \(readerLetterSpacing, specifier: "%.1f")") { Slider(value: $readerLetterSpacing, in: -0.5...3, step: 0.1) }
+                    Toggle("自动翻页", isOn: $autoTurnEnabled)
+                    Section("自动翻页间隔 · \(Int(autoTurnSeconds)) 秒") { Slider(value: $autoTurnSeconds, in: 3...60, step: 1) }
+                    Toggle("屏幕常亮", isOn: $keepScreenOn)
                     Picker("字重", selection: $readerFontWeightValue) {
                         Text("细").tag(300); Text("标准").tag(400); Text("适中").tag(500); Text("偏粗").tag(600); Text("粗").tag(700)
                     }
@@ -3287,11 +3302,25 @@ private struct ReaderView: View {
             }
             }
         }
-        .onAppear { store.beginReadingSession() }
+        .onAppear {
+            store.beginReadingSession()
+            #if os(iOS)
+            priorIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled
+            UIApplication.shared.isIdleTimerDisabled = keepScreenOn || priorIdleTimerDisabled
+            #endif
+        }
+        .onChange(of: keepScreenOn) { _, enabled in
+            #if os(iOS)
+            UIApplication.shared.isIdleTimerDisabled = enabled || priorIdleTimerDisabled
+            #endif
+        }
         .onDisappear {
             positionSaveTask?.cancel()
             savePosition(paragraphIndex: lastVisibleParagraph)
             store.endReadingSession()
+            #if os(iOS)
+            UIApplication.shared.isIdleTimerDisabled = priorIdleTimerDisabled
+            #endif
         }
         .sheet(isPresented: $showingReaderDirectory) {
             NativeChapterDirectoryView(chapters: chapters, currentChapterID: chapters.indices.contains(selectedIndex) ? chapters[selectedIndex].id : nil) { chapter in
@@ -3702,6 +3731,8 @@ private struct NativeReadingPreferencesView: View {
     @AppStorage("xiaoman.reader.titleSize") private var titleSize = 20.0
     @AppStorage("xiaoman.reader.titleAlignment") private var titleAlignment = "start"
     @AppStorage("xiaoman.reader.tapZones") private var tapZones = "prevPage,menu,nextPage,prevPage,menu,nextPage,prevPage,menu,nextPage"
+    @AppStorage("xiaoman.reader.autoTurnSeconds") private var autoTurnSeconds = 10.0
+    @AppStorage("xiaoman.reader.keepScreenOn") private var keepScreenOn = false
 
     private let tapActions: [(String, String)] = [
         ("none", "无"), ("menu", "菜单"), ("prevPage", "上一页"), ("nextPage", "下一页"),
@@ -3781,6 +3812,13 @@ private struct NativeReadingPreferencesView: View {
                 }
                 Text("至少保留一个“菜单”区域，点按阅读页面可翻页、切章或打开目录。")
                     .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("阅读行为") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack { Text("自动翻页间隔"); Spacer(); Text("\(Int(autoTurnSeconds)) 秒").foregroundStyle(.secondary) }
+                    Slider(value: $autoTurnSeconds, in: 3...60, step: 1)
+                }
+                Toggle("阅读时保持屏幕常亮", isOn: $keepScreenOn)
             }
             Section {
                 Text("阅读器中也可随时调整这些选项，设置会自动保存到本机。")
