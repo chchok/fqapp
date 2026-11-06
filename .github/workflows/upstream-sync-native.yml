@@ -1,0 +1,82 @@
+name: Sync upstream and publish Xiaoman native previews
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-sync-native
+  cancel-in-progress: false
+
+jobs:
+  sync-build-release:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Check out the fork
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Merge upstream master
+        id: sync
+        run: |
+          git remote add upstream https://github.com/ch6vip/fqapp.git
+          git fetch upstream master
+          old_revision="$(git rev-parse HEAD)"
+          git merge --no-edit upstream/master
+          new_revision="$(git rev-parse HEAD)"
+          echo "revision=$new_revision" >> "$GITHUB_OUTPUT"
+          if [[ "$old_revision" == "$new_revision" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push the synchronized fork
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          git push origin HEAD:master
+
+      - name: Build unsigned iOS and macOS installers
+        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: ./scripts/package_native_unsigned.sh
+
+      - name: Publish prerelease assets
+        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          revision="$(git rev-parse --short HEAD)"
+          stamp="$(date -u +%Y%m%d%H%M%S)"
+          tag="xiaoman-preview-${stamp}-${revision}"
+          shasum -a 256 \
+            dist/unsigned/ios/XiaomanReading-iOS-unsigned.ipa \
+            dist/unsigned/macos/XiaomanReading-macOS-unsigned.zip \
+            > dist/unsigned/SHA256SUMS.txt
+          gh release create "$tag" \
+            dist/unsigned/ios/XiaomanReading-iOS-unsigned.ipa \
+            dist/unsigned/macos/XiaomanReading-macOS-unsigned.zip \
+            dist/unsigned/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target HEAD \
+            --title "小满阅读原生预览 ${stamp}" \
+            --notes "自动同步自 ch6vip/fqapp master（${revision}）。未签名 iOS IPA 与 Intel/Apple Silicon 通用 macOS ZIP。iOS 包需重签后安装；macOS 正式分发需签名和公证。" \
+            --prerelease
