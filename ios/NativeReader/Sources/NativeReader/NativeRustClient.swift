@@ -38,6 +38,10 @@ struct NativeBook: Identifiable, Hashable, Codable {
     let category: String
     let kind: String
     let coverURL: URL?
+    let tagText: String?
+    let tagColors: [String]?
+    let episodeLabel: String?
+    let recommendationReason: String?
 
     var progress: String { UserDefaults.standard.string(forKey: "xiaoman.progress.\(id)").map { "读至 \($0)" } ?? "尚未阅读" }
     var savedChapterTitle: String? { UserDefaults.standard.string(forKey: "xiaoman.progress.\(id)") }
@@ -593,6 +597,12 @@ final class NativeReadingStore: ObservableObject {
             guard !title.isEmpty else { return }
             let author = string(card, keys: ["author", "author_name"], fallback: fallback) ?? ""
             let cover = string(card, keys: ["series_cover", "cover", "thumb_url", "thumb", "cover_url", "poster"], fallback: fallback) ?? ""
+            let tagInfo = (card["tag_info"] as? [String: Any]) ?? (fallback["tag_info"] as? [String: Any])
+            let tagText = tagInfo.flatMap { string($0, keys: ["text"], fallback: [:]) }
+            let tagColors = tagInfo?["bg_color"] as? [String] ?? tagInfo?["dark_bg_color"] as? [String]
+            let episodeLabel = string(card, keys: ["ep", "episode_text", "episode_list_text"], fallback: fallback)
+            let reasonList = (card["recommend_reason_list"] as? [[String: Any]]) ?? (fallback["recommend_reason_list"] as? [[String: Any]]) ?? []
+            let recommendationReason = reasonList.first?["content"] as? String
             let kind: String
             if ["series_id", "series_id_str", "pseries_id", "video_id", "vid"].contains(where: { card[$0] != nil || fallback[$0] != nil }) { kind = "video" }
             else if ["audio_book_id", "audio_id", "album_id"].contains(where: { card[$0] != nil || fallback[$0] != nil }) { kind = "audio" }
@@ -601,7 +611,7 @@ final class NativeReadingStore: ObservableObject {
             let inferredCategory = kind == "video" ? "短剧" : kind == "audio" ? "听书" : kind == "manga" ? "漫画" : "小说"
             let displayKind = category ?? inferredCategory
             let finalKind = displayKind == "漫剧" ? "manju" : displayKind == "漫画" ? "manga" : displayKind == "听书" ? "audio" : displayKind == "短剧" ? "video" : kind
-            output.append(NativeBook(id: id, title: title, author: author, category: displayKind, kind: finalKind, coverURL: URL(string: cover)))
+            output.append(NativeBook(id: id, title: title, author: author, category: displayKind, kind: finalKind, coverURL: URL(string: cover), tagText: tagText, tagColors: tagColors, episodeLabel: episodeLabel, recommendationReason: recommendationReason))
         }
         visit(payload, depth: 0)
         return output

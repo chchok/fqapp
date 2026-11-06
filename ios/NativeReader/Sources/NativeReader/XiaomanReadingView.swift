@@ -820,7 +820,7 @@ private struct HomeMediaCard: View {
     var radius: CGFloat = 3
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .bottomLeading) {
+            ZStack(alignment: .topLeading) {
                 if let url = item.coverURL {
                     AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: {
                         NativeCoverPlaceholder(item: item)
@@ -828,13 +828,26 @@ private struct HomeMediaCard: View {
                 } else {
                     NativeCoverPlaceholder(item: item)
                 }
+                if let tag = item.tagText, !tag.isEmpty,
+                   let colors = item.tagColors, !colors.isEmpty {
+                    Text(tag).font(.system(size: 9)).lineLimit(1)
+                        .foregroundStyle(.white).padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(LinearGradient(colors: colors.compactMap(nativeHexColor).ifEmpty([Color.black.opacity(0.7)]), startPoint: .leading, endPoint: .trailing), in: RoundedRectangle(cornerRadius: 5))
+                        .padding(8)
+                }
+                if let episode = item.episodeLabel, !episode.isEmpty, item.kind == "video" {
+                    Text(episode).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+                        .foregroundStyle(.white).shadow(color: .black.opacity(0.8), radius: 2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .padding(8)
+                }
             }
-            .aspectRatio(5.0 / 7.0, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: radius))
+            .frame(width: width, height: width * 1.4).clipped().clipShape(RoundedRectangle(cornerRadius: radius))
             Text(item.title).font(.system(size: 14.5, weight: .semibold)).lineSpacing(0).lineLimit(2).truncationMode(.tail).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
                 .frame(height: 39.2, alignment: .topLeading).padding(.top, 8)
             Text(fileCode(item)).font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1.05)
                 .lineLimit(1).foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41)).padding(.top, 5)
-            let meta = item.author.isEmpty ? (item.kind == "book" ? "" : kindLabel(item.kind)) : item.author
+            let meta = [item.author, item.recommendationReason].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
             if !meta.isEmpty { Text(meta).font(.system(size: 11)).lineLimit(1).foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41)).padding(.top, 2) }
         }
         .frame(width: width, alignment: .leading)
@@ -847,15 +860,15 @@ private struct HomeMediaCard: View {
         return "\(prefix)-\(String(repeating: "0", count: max(0, 5 - tail.count)))\(tail)"
     }
 
-    private func kindLabel(_ kind: String) -> String {
-        switch kind {
-        case "video": "短剧"
-        case "manju": "漫剧"
-        case "manga": "漫画"
-        case "audio": "听书"
-        default: "小说"
-        }
-    }
+}
+
+private func nativeHexColor(_ hex: String) -> Color? {
+    guard hex.count == 7, hex.first == "#", let value = UInt64(hex.dropFirst(), radix: 16) else { return nil }
+    return Color(.sRGB, red: Double((value >> 16) & 0xff) / 255, green: Double((value >> 8) & 0xff) / 255, blue: Double(value & 0xff) / 255, opacity: 1)
+}
+
+private extension Array where Element == Color {
+    func ifEmpty(_ fallback: [Color]) -> [Color] { isEmpty ? fallback : self }
 }
 
 private struct NativeCoverPlaceholder: View {
