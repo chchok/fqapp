@@ -3046,6 +3046,8 @@ private struct ReaderView: View {
     @State private var positionSaveTask: Task<Void, Never>?
     @State private var error: String?
     @State private var isLoading = true
+    @State private var readerChromeVisible = true
+    @State private var showingReaderDirectory = false
     @AppStorage("xiaoman.reader.fontSize") private var fontSize = 18.0
     @AppStorage("xiaoman.reader.lineSpacing") private var readerLineSpacing = 10.0
     @AppStorage("xiaoman.reader.paper") private var readerPaperID = "warm"
@@ -3057,6 +3059,7 @@ private struct ReaderView: View {
     @AppStorage("xiaoman.reader.letterSpacing") private var readerLetterSpacing = 0.0
     @AppStorage("xiaoman.reader.titleSize") private var readerTitleSize = 20.0
     @AppStorage("xiaoman.reader.titleAlignment") private var readerTitleAlignment = "start"
+    @AppStorage("xiaoman.reader.tapZones") private var readerTapZones = "prevPage,menu,nextPage,prevPage,menu,nextPage,prevPage,menu,nextPage"
     @State private var pagedPageIndex = 0
     @State private var pagedTextOffset = 0
 
@@ -3093,7 +3096,7 @@ private struct ReaderView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !chapters.isEmpty {
+            if !chapters.isEmpty && readerChromeVisible {
                 HStack {
                     Button { Task { await openChapter(selectedIndex - 1) } } label: { Image(systemName: "chevron.left") }
                         .disabled(selectedIndex == 0)
@@ -3117,18 +3120,21 @@ private struct ReaderView: View {
             } else if readerPageMode == "paged" {
                 GeometryReader { geometry in
                     let pageWidth = max(180, min(geometry.size.width - readerHorizontalPadding * 2, 720))
-                    let pageHeight = max(160, geometry.size.height - 110 - readerVerticalPadding * 2)
+                    let chromeHeight = readerChromeVisible ? 110.0 : 16.0
+                    let pageHeight = max(160, geometry.size.height - chromeHeight - readerVerticalPadding * 2)
                     let pages = Self.paginatedPages(readerText, width: pageWidth, height: pageHeight, fontSize: fontSize, fontWeight: readerFontWeightValue, letterSpacing: readerLetterSpacing, lineSpacing: readerLineSpacing, paragraphSpacing: readerParagraphSpacing)
                     let visibleIndex = min(max(0, pagedPageIndex), max(0, pages.count - 1))
                     VStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(book.title).font(.system(size: 13, weight: .medium)).foregroundStyle(readerInk.opacity(0.65)).lineLimit(1)
-                            if chapters.indices.contains(selectedIndex) {
-                                Text(chapters[selectedIndex].title).font(.system(size: readerTitleSize, weight: .semibold)).foregroundStyle(readerInk).lineLimit(1)
+                        if readerChromeVisible {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(book.title).font(.system(size: 13, weight: .medium)).foregroundStyle(readerInk.opacity(0.65)).lineLimit(1)
+                                if chapters.indices.contains(selectedIndex) {
+                                    Text(chapters[selectedIndex].title).font(.system(size: readerTitleSize, weight: .semibold)).foregroundStyle(readerInk).lineLimit(1)
+                                }
                             }
+                            .frame(width: pageWidth, height: 54, alignment: readerTitleAlignment == "center" ? .center : .leading)
+                            .multilineTextAlignment(readerTitleAlignment == "center" ? .center : .leading)
                         }
-                        .frame(width: pageWidth, height: 54, alignment: readerTitleAlignment == "center" ? .center : .leading)
-                        .multilineTextAlignment(readerTitleAlignment == "center" ? .center : .leading)
                         Text(pages.isEmpty ? "" : pages[visibleIndex].text)
                             .font(.system(size: fontSize, weight: readerFontWeight, design: .serif))
                             .lineSpacing(readerLineSpacing)
@@ -3136,17 +3142,23 @@ private struct ReaderView: View {
                             .foregroundStyle(readerInk)
                             .frame(width: pageWidth, height: pageHeight, alignment: .topLeading)
                             .frame(maxWidth: .infinity)
-                        HStack {
-                            Button { turnPage(-1, pages: pages) } label: { Image(systemName: "chevron.left") }
-                                .disabled(pagedPageIndex == 0 && selectedIndex == 0)
-                            Spacer()
-                            Text("\(visibleIndex + 1) / \(max(1, pages.count))").font(.system(size: 12, design: .monospaced)).foregroundStyle(readerInk.opacity(0.64))
-                            Spacer()
-                            Button { turnPage(1, pages: pages) } label: { Image(systemName: "chevron.right") }
-                                .disabled(pagedPageIndex + 1 >= pages.count && selectedIndex + 1 >= chapters.count)
+                            .contentShape(Rectangle())
+                            .gesture(SpatialTapGesture().onEnded { value in
+                                performTapZone(at: value.location, width: pageWidth, height: pageHeight, pages: pages)
+                            })
+                        if readerChromeVisible {
+                            HStack {
+                                Button { turnPage(-1, pages: pages) } label: { Image(systemName: "chevron.left") }
+                                    .disabled(pagedPageIndex == 0 && selectedIndex == 0)
+                                Spacer()
+                                Text("\(visibleIndex + 1) / \(max(1, pages.count))").font(.system(size: 12, design: .monospaced)).foregroundStyle(readerInk.opacity(0.64))
+                                Spacer()
+                                Button { turnPage(1, pages: pages) } label: { Image(systemName: "chevron.right") }
+                                    .disabled(pagedPageIndex + 1 >= pages.count && selectedIndex + 1 >= chapters.count)
+                            }
+                            .buttonStyle(.plain).foregroundStyle(readerInk.opacity(0.75))
+                            .frame(width: pageWidth, height: 40)
                         }
-                        .buttonStyle(.plain).foregroundStyle(readerInk.opacity(0.75))
-                        .frame(width: pageWidth, height: 40)
                     }
                     .padding(.horizontal, readerHorizontalPadding).padding(.vertical, readerVerticalPadding)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -3181,6 +3193,9 @@ private struct ReaderView: View {
                         pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
                     }
                     .onChange(of: readerLetterSpacing) { _, _ in
+                        pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
+                    }
+                    .onChange(of: readerChromeVisible) { _, _ in
                         pagedPageIndex = pageIndex(for: pagedTextOffset, in: pages)
                     }
                 }
@@ -3231,6 +3246,7 @@ private struct ReaderView: View {
         }
         .background(readerPaper.ignoresSafeArea())
         .toolbar {
+            if readerChromeVisible {
             ToolbarItem(placement: .automatic) { Button("完成") { dismiss() } }
             ToolbarItem(placement: .automatic) { Button("加入书架", systemImage: "books.vertical") { addToShelf() } }
             ToolbarItem(placement: .automatic) {
@@ -3263,12 +3279,19 @@ private struct ReaderView: View {
                     }
                 } label: { Image(systemName: "textformat.size") }
             }
+            }
         }
         .onAppear { store.beginReadingSession() }
         .onDisappear {
             positionSaveTask?.cancel()
             savePosition(paragraphIndex: lastVisibleParagraph)
             store.endReadingSession()
+        }
+        .sheet(isPresented: $showingReaderDirectory) {
+            NativeChapterDirectoryView(chapters: chapters, currentChapterID: chapters.indices.contains(selectedIndex) ? chapters[selectedIndex].id : nil) { chapter in
+                if let index = chapters.firstIndex(where: { $0.id == chapter.id }) { Task { await openChapter(index) } }
+                showingReaderDirectory = false
+            }
         }
         .task { await loadDirectory() }
     }
@@ -3377,6 +3400,23 @@ private struct ReaderView: View {
 
     private func pageIndex(for offset: Int, in pages: [(range: NSRange, text: String)]) -> Int {
         pages.firstIndex(where: { NSLocationInRange(offset, $0.range) }) ?? max(0, pages.count - 1)
+    }
+
+    private func performTapZone(at point: CGPoint, width: CGFloat, height: CGFloat, pages: [(range: NSRange, text: String)]) {
+        let column = min(2, max(0, Int(point.x / max(width / 3, 1))))
+        let row = min(2, max(0, Int(point.y / max(height / 3, 1))))
+        let defaults = ["prevPage", "menu", "nextPage", "prevPage", "menu", "nextPage", "prevPage", "menu", "nextPage"]
+        let configured = readerTapZones.split(separator: ",").map(String.init)
+        let action = (configured.count == 9 ? configured : defaults)[row * 3 + column]
+        switch action {
+        case "menu": readerChromeVisible.toggle()
+        case "prevPage": turnPage(-1, pages: pages)
+        case "nextPage": turnPage(1, pages: pages)
+        case "prevChapter": if selectedIndex > 0 { Task { await openChapter(selectedIndex - 1) } }
+        case "nextChapter": if selectedIndex + 1 < chapters.count { Task { await openChapter(selectedIndex + 1) } }
+        case "toc": showingReaderDirectory = true
+        default: break
+        }
     }
 
     private static func paginatedPages(_ text: String, width: CGFloat, height: CGFloat, fontSize: Double, fontWeight: Int, letterSpacing: Double, lineSpacing: Double, paragraphSpacing: Double) -> [(range: NSRange, text: String)] {
@@ -3655,6 +3695,29 @@ private struct NativeReadingPreferencesView: View {
     @AppStorage("xiaoman.reader.letterSpacing") private var letterSpacing = 0.0
     @AppStorage("xiaoman.reader.titleSize") private var titleSize = 20.0
     @AppStorage("xiaoman.reader.titleAlignment") private var titleAlignment = "start"
+    @AppStorage("xiaoman.reader.tapZones") private var tapZones = "prevPage,menu,nextPage,prevPage,menu,nextPage,prevPage,menu,nextPage"
+
+    private let tapActions: [(String, String)] = [
+        ("none", "无"), ("menu", "菜单"), ("prevPage", "上一页"), ("nextPage", "下一页"),
+        ("prevChapter", "上一章"), ("nextChapter", "下一章"), ("toc", "目录")
+    ]
+
+    private var tapZoneValues: [String] {
+        let values = tapZones.split(separator: ",").map(String.init)
+        return values.count == 9 ? values : ["prevPage", "menu", "nextPage", "prevPage", "menu", "nextPage", "prevPage", "menu", "nextPage"]
+    }
+
+    private func tapZoneBinding(_ index: Int) -> Binding<String> {
+        Binding(
+            get: { tapZoneValues[index] },
+            set: { action in
+                var values = tapZoneValues
+                values[index] = action
+                if !values.contains("menu") { values[4] = "menu" }
+                tapZones = values.joined(separator: ",")
+            }
+        )
+    }
 
     var body: some View {
         Form {
@@ -3701,6 +3764,17 @@ private struct NativeReadingPreferencesView: View {
                     Text("夜间").tag("night")
                     Text("墨水屏").tag("eink")
                 }
+            }
+            Section("点击区域 · 九宫格") {
+                ForEach(0..<9, id: \.self) { index in
+                    Picker("第\(index / 3 + 1)行 · 第\(index % 3 + 1)列", selection: tapZoneBinding(index)) {
+                        ForEach(tapActions, id: \.0) { action, title in
+                            Text(title).tag(action)
+                        }
+                    }
+                }
+                Text("至少保留一个“菜单”区域，点按阅读页面可翻页、切章或打开目录。")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             Section {
                 Text("阅读器中也可随时调整这些选项，设置会自动保存到本机。")
