@@ -23,3 +23,7 @@ cat > "$OUT/README.md" <<'NOTES'
 
 本包仍是开发预览。与 Android 的逐页布局和交互尚未完成完整对照验收；播放器的弹幕、评论、清晰度、离线下载等控件，漫画阅读、听书后台播放、备份导入及跨设备同步等功能仍未完成。不能据此宣称功能或 UI 已与 Android 完全一致。
 NOTES
+shasum -a 256 \
+  "$OUT/ios/XiaomanReading-iOS-unsigned.ipa" \
+  "$OUT/macos/XiaomanReading-macOS-unsigned.zip" \
+  | sed "s#$ROOT/##" > "$OUT/SHA256SUMS.txt"

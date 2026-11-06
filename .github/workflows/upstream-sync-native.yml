@@ -2,7 +2,7 @@ name: Sync upstream and publish Xiaoman native previews
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -74,9 +74,10 @@ jobs:
           gh release create "$tag" \
             dist/unsigned/ios/XiaomanReading-iOS-unsigned.ipa \
             dist/unsigned/macos/XiaomanReading-macOS-unsigned.zip \
+            dist/unsigned/README.md \
             dist/unsigned/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" \
             --target HEAD \
             --title "小满阅读原生预览 ${stamp}" \
-            --notes "自动同步自 ch6vip/fqapp master（${revision}）。未签名 iOS IPA 与 Intel/Apple Silicon 通用 macOS ZIP。iOS 包需重签后安装；macOS 正式分发需签名和公证。" \
+            --notes "自动同步自 ch6vip/fqapp master（${revision}）。附未签名 iOS IPA、Intel/Apple Silicon 通用 macOS ZIP、构建说明及校验值。本构建为开发预览，Android 布局尚未完成逐页一致性验收；iOS IPA 需重签后安装。" \
             --prerelease

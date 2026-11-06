@@ -168,7 +168,9 @@ private struct HomeView: View {
             masthead
             categoryBar
             GeometryReader { geometry in
-                let width = min(geometry.size.width, geometry.size.width < 840 ? 840 : geometry.size.width)
+                // Android constrains phones to the screen width and lets iPad / desktop
+                // use the available window width. Do not cap the native grid at 840pt.
+                let width = geometry.size.width
                 let gutter: CGFloat = 16
                 let gridWidth = width - gutter * 2
                 let count = columnCount(for: gridWidth)
@@ -192,7 +194,6 @@ private struct HomeView: View {
                             .padding(.horizontal, gutter)
                         }
                     }
-                    .frame(maxWidth: 840)
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 110)
                 }
@@ -266,8 +267,7 @@ private struct HomeView: View {
                 .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 8)
-        .frame(maxWidth: 840, alignment: .leading)
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func headerAction(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
@@ -543,21 +543,18 @@ private struct HomeMediaCard: View {
             ZStack(alignment: .bottomLeading) {
                 if let url = item.coverURL {
                     AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: {
-                        RoundedRectangle(cornerRadius: 12).fill(item.color.gradient)
+                        NativeCoverPlaceholder(item: item)
                     }
                 } else {
-                    RoundedRectangle(cornerRadius: 12).fill(item.color.gradient)
-                        .overlay(Image(systemName: "book.closed.fill").font(.largeTitle).foregroundStyle(.white.opacity(0.8)))
+                    NativeCoverPlaceholder(item: item)
                 }
-                Text(item.category).font(.caption2.weight(.medium)).padding(.horizontal, 8).padding(.vertical, 4)
-                    .background(.ultraThinMaterial, in: Capsule()).padding(8)
             }
             .aspectRatio(5.0 / 7.0, contentMode: .fit).clipShape(RoundedRectangle(cornerRadius: radius))
-            Text(item.title).font(.system(size: 14.5, weight: .semibold)).lineSpacing(2).lineLimit(2).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
-                .frame(height: 42, alignment: .topLeading).padding(.top, 8)
+            Text(item.title).font(.system(size: 14.5, weight: .semibold)).lineSpacing(0).lineLimit(2).truncationMode(.tail).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                .frame(height: 39.2, alignment: .topLeading).padding(.top, 8)
             Text(fileCode(item)).font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1.05)
                 .lineLimit(1).foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41)).padding(.top, 5)
-            let meta = item.author.isEmpty ? item.category : item.author
+            let meta = item.author.isEmpty ? (item.kind == "book" ? "" : kindLabel(item.kind)) : item.author
             if !meta.isEmpty { Text(meta).font(.system(size: 11)).lineLimit(1).foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41)).padding(.top, 2) }
         }
         .frame(width: width, alignment: .leading)
@@ -568,6 +565,50 @@ private struct HomeMediaCard: View {
         let digits = item.id.filter(\.isNumber)
         let tail = String(digits.suffix(5))
         return "\(prefix)-\(String(repeating: "0", count: max(0, 5 - tail.count)))\(tail)"
+    }
+
+    private func kindLabel(_ kind: String) -> String {
+        switch kind {
+        case "video": "短剧"
+        case "manju": "漫剧"
+        case "manga": "漫画"
+        case "audio": "听书"
+        default: "小说"
+        }
+    }
+}
+
+private struct NativeCoverPlaceholder: View {
+    let item: NativeBook
+
+    private var colors: [Color] {
+        switch item.kind {
+        case "video": [Color(red: 0.45, green: 0.28, blue: 0.25), Color(red: 0.14, green: 0.14, blue: 0.16)]
+        case "manju": [Color(red: 0.55, green: 0.33, blue: 0.50), Color(red: 0.21, green: 0.16, blue: 0.24)]
+        case "manga": [Color(red: 0.44, green: 0.41, blue: 0.53), Color(red: 0.20, green: 0.20, blue: 0.29)]
+        case "audio": [Color(red: 0.26, green: 0.42, blue: 0.47), Color(red: 0.13, green: 0.23, blue: 0.26)]
+        default: [Color(red: 0.42, green: 0.47, blue: 0.39), Color(red: 0.16, green: 0.24, blue: 0.21)]
+        }
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                LinearGradient(colors: colors, startPoint: UnitPoint(x: 0.33, y: 0), endPoint: UnitPoint(x: 0.67, y: 1))
+                VStack(spacing: 0) {
+                    ForEach(Array(item.title.prefix(8).enumerated()), id: \.offset) { _, character in
+                        Text(String(character))
+                            .font(.system(size: min(22, max(12, geometry.size.width * 0.13)), weight: .bold, design: .serif))
+                            .foregroundStyle(.white.opacity(0.92))
+                    }
+                }
+                .lineSpacing(1)
+                .padding(.leading, geometry.size.width * 0.11)
+                .padding(.top, geometry.size.height * 0.09)
+                .frame(height: geometry.size.height * 0.74, alignment: .top)
+                LinearGradient(colors: [.clear, .black.opacity(0.18)], startPoint: .center, endPoint: .bottom)
+            }
+        }
     }
 }
 
