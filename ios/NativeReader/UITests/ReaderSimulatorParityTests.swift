@@ -88,5 +88,9 @@ final class ReaderSimulatorParityTests: XCTestCase {
         XCTAssertTrue(pauseSpeech.waitForExistence(timeout: 10), "开始朗读后没有暂停状态")
         XCTAssertEqual(pauseSpeech.label, "暂停朗读")
         app.buttons["reader.systemSpeech.stop"].tap()
+        speechMenu.tap()
+        let startAgain = app.buttons["reader.systemSpeech.toggle"]
+        XCTAssertTrue(startAgain.waitForExistence(timeout: 10), "停止朗读后没有恢复待播放状态")
+        XCTAssertEqual(startAgain.label, "开始系统朗读")
     }
 }

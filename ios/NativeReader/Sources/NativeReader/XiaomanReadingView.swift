@@ -3071,6 +3071,7 @@ private struct ReaderView: View {
     @AppStorage("xiaoman.reader.keepScreenOn") private var keepScreenOn = false
     @AppStorage("xiaoman.reader.infoMode") private var readerInfoMode = "compact"
     @AppStorage("xiaoman.reader.systemSpeechRate") private var systemSpeechRate = 1.0
+    @AppStorage("xiaoman.reader.systemSpeechVoice") private var systemSpeechVoice = "system"
     @State private var pagedPageIndex = 0
     @State private var pagedTextOffset = 0
 
@@ -3103,6 +3104,10 @@ private struct ReaderView: View {
         case 501...600: .semibold
         default: .bold
         }
+    }
+
+    private var availableSpeechVoices: [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("zh") }
     }
 
     var body: some View {
@@ -3330,7 +3335,7 @@ private struct ReaderView: View {
             ToolbarItem(placement: .automatic) {
                 Menu {
                     Button(systemSpeech.actionTitle, systemImage: systemSpeech.actionSymbol) {
-                        systemSpeech.toggle(text: readerText, rate: systemSpeechRate)
+                        systemSpeech.toggle(text: readerText, rate: systemSpeechRate, voiceIdentifier: systemSpeechVoice)
                     }
                     .accessibilityIdentifier("reader.systemSpeech.toggle")
                     if systemSpeech.status != .idle {
@@ -3343,6 +3348,13 @@ private struct ReaderView: View {
                         Slider(value: $systemSpeechRate, in: 0.5...3, step: 0.1)
                             .accessibilityIdentifier("reader.systemSpeech.rate")
                     }
+                    Picker("朗读声音", selection: $systemSpeechVoice) {
+                        Text("系统默认").tag("system")
+                        ForEach(availableSpeechVoices, id: \.identifier) { voice in
+                            Text(voice.name).tag(voice.identifier)
+                        }
+                    }
+                    .accessibilityIdentifier("reader.systemSpeech.voice")
                 } label: { Image(systemName: "headphones") }
                     .accessibilityLabel("系统朗读")
                     .accessibilityIdentifier("reader.systemSpeech")
@@ -3602,7 +3614,7 @@ private final class NativeSystemSpeechController: NSObject, ObservableObject, @p
         }
     }
 
-    func toggle(text: String, rate: Double) {
+    func toggle(text: String, rate: Double, voiceIdentifier: String) {
         switch status {
         case .speaking:
             synthesizer.pauseSpeaking(at: .word)
@@ -3621,7 +3633,9 @@ private final class NativeSystemSpeechController: NSObject, ObservableObject, @p
             #endif
             for chunk in chunks {
                 let utterance = AVSpeechUtterance(string: chunk)
-                utterance.voice = AVSpeechSynthesisVoice(language: "zh-CN")
+                utterance.voice = voiceIdentifier == "system"
+                    ? AVSpeechSynthesisVoice(language: "zh-CN")
+                    : AVSpeechSynthesisVoice(identifier: voiceIdentifier) ?? AVSpeechSynthesisVoice(language: "zh-CN")
                 let defaultRate = Double(AVSpeechUtteranceDefaultSpeechRate)
                 let minimumRate = Double(AVSpeechUtteranceMinimumSpeechRate)
                 let maximumRate = Double(AVSpeechUtteranceMaximumSpeechRate)
