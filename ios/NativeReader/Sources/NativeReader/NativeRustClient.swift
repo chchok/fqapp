@@ -9,6 +9,14 @@ struct NativeHomeTab: Identifiable, Hashable {
     let type: Int
 }
 
+struct NativeHomeRank: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let names: [String]
+    let algorithms: [Int]
+    let books: [NativeBook]
+}
+
 struct NativeCategoryChannel: Identifiable, Hashable {
     let id: String
     let title: String
@@ -70,6 +78,7 @@ final class NativeReadingStore: ObservableObject {
     @Published private(set) var homeTabs: [NativeHomeTab] = nativeFallbackHomeTabs
     @Published var selectedHomeTab = 0
     @Published private(set) var homeItems: [NativeBook] = []
+    @Published private(set) var homeRank: NativeHomeRank?
     @Published private(set) var homeLoading = false
     @Published private(set) var homeMessage: String?
     @Published private(set) var categoryChannels: [NativeCategoryChannel] = []
@@ -184,7 +193,7 @@ final class NativeReadingStore: ObservableObject {
         let generation = homeLoadGeneration
         homeLoading = true
         homeMessage = nil
-        if loadedHomeTab != tabIndex { homeItems = [] }
+        if loadedHomeTab != tabIndex { homeItems = []; homeRank = nil }
         defer { if generation == homeLoadGeneration { homeLoading = false } }
         do {
             try await initializeIfNeeded()
@@ -200,6 +209,7 @@ final class NativeReadingStore: ObservableObject {
             }.value
             guard generation == homeLoadGeneration else { return }
             homeItems = result.items
+            homeRank = result.rank
             loadedHomeTab = tabIndex
             if homeItems.isEmpty { homeMessage = "该分类暂时没有推荐内容" }
         } catch {
@@ -243,6 +253,19 @@ final class NativeReadingStore: ObservableObject {
         guard let base = resourceBaseURL?.absoluteString else { throw NativeClientError.message("媒体服务尚未启动") }
         return try await Task.detached(priority: .userInitiated) {
             try Self.fetchVideoURL(episode.id, resourceBase: base)
+        }.value
+    }
+
+    func rankBoard(id: String, algorithm: Int, offset: Int = 0) async throws -> [NativeBook] {
+        try await initializeIfNeeded()
+        let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        return try await Task.detached(priority: .userInitiated) {
+            let payload = try Self.performJSONRequest(path: "/api/v1/rank/\(encoded)", parameters: [
+                URLQueryItem(name: "algo_type", value: String(algorithm)),
+                URLQueryItem(name: "rank_sub_info_id", value: "0"),
+                URLQueryItem(name: "offset", value: String(offset))
+            ])
+            return Self.parseBooks(payload, category: "小说")
         }.value
     }
 
@@ -347,7 +370,7 @@ final class NativeReadingStore: ObservableObject {
         return value
     }
 
-    nonisolated private static func performHome(tab: NativeHomeTab, tabIndex: Int) throws -> (tabs: [NativeHomeTab], items: [NativeBook]) {
+    nonisolated private static func performHome(tab: NativeHomeTab, tabIndex: Int) throws -> (tabs: [NativeHomeTab], items: [NativeBook], rank: NativeHomeRank?) {
         let payload = try performJSONRequest(path: "/api/v1/recommend/homepage", parameters: [
             URLQueryItem(name: "tab_type", value: String(tab.type)),
             URLQueryItem(name: "offset", value: "0"),
@@ -355,7 +378,46 @@ final class NativeReadingStore: ObservableObject {
             URLQueryItem(name: "last_tab_index", value: String(tabIndex))
         ])
         let contentKind = tab.type == 16 || tab.type == 8 ? "短剧" : tab.title
-        return (nativeFallbackHomeTabs, parseBooks(payload, category: contentKind))
+        return (nativeFallbackHomeTabs, parseBooks(payload, category: contentKind), parseHomeRank(payload, tabIndex: tabIndex))
+    }
+
+    nonisolated private static func parseHomeRank(_ payload: Any, tabIndex: Int) -> NativeHomeRank? {
+        let root = payload as? [String: Any] ?? [:]
+        let data = root["data"] as? [String: Any] ?? root
+        var selected: Any = data
+        if let tabs = data["tab_item"] as? [Any] {
+            guard let index = (data["tab_index"] as? NSNumber)?.intValue,
+                  tabs.indices.contains(index), index == tabIndex else { return nil }
+            selected = tabs[index]
+        }
+        func find(_ node: Any, depth: Int) -> [String: Any]? {
+            guard depth <= 12 else { return nil }
+            if let list = node as? [Any] {
+                for item in list { if let found = find(item, depth: depth + 1) { return found } }
+            } else if let map = node as? [String: Any] {
+                if map["rank_with_category_data"] is [String: Any] { return map }
+                for child in map.values { if let found = find(child, depth: depth + 1) { return found } }
+            }
+            return nil
+        }
+        guard let card = find(selected, depth: 0),
+              let rank = card["rank_with_category_data"] as? [String: Any] else { return nil }
+        let entries = rank["rank_algo_list"] as? [[String: Any]] ?? []
+        let valid = entries.compactMap { entry -> (String, Int)? in
+            guard let name = entry["rank_name"] as? String, !name.isEmpty else { return nil }
+            let algorithm = (entry["rank_algo"] as? NSNumber)?.intValue ?? Int("\(entry["rank_algo"] ?? "")")
+            guard let algorithm, algorithm >= 0 else { return nil }
+            return (name, algorithm)
+        }
+        let id = card["cell_id_str"] as? String ?? ""
+        guard !id.isEmpty, !valid.isEmpty else { return nil }
+        return NativeHomeRank(
+            id: id,
+            title: (card["cell_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "排行榜",
+            names: valid.map(\.0),
+            algorithms: valid.map(\.1),
+            books: parseBooks(card, category: "小说")
+        )
     }
 
     nonisolated private static func fetchMediaDetails(_ item: NativeBook) throws -> [String: String] {

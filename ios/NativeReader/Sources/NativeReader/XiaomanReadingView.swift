@@ -16,6 +16,7 @@ public struct XiaomanReadingView: View {
     @State private var selectedBook: NativeBook?
     @State private var selectedMedia: NativeBook?
     @State private var selectedReader: NativeBook?
+    @State private var selectedHomeRank: NativeHomeRank?
 
     public init() {}
 
@@ -24,7 +25,7 @@ public struct XiaomanReadingView: View {
             switch selection {
             case .home:
                 NavigationStack {
-                    HomeView(query: $query, store: store, onSearch: { showingSearch = true }, onCategories: { showingCategories = true }, onResume: { selectedReader = $0 }) { item in
+                    HomeView(query: $query, store: store, onSearch: { showingSearch = true }, onCategories: { showingCategories = true }, onResume: { selectedReader = $0 }, onOpenRank: { selectedHomeRank = store.homeRank }) { item in
                         if item.kind == "book" { selectedBook = item }
                         else { selectedMedia = item }
                     }
@@ -58,6 +59,14 @@ public struct XiaomanReadingView: View {
         }
         .sheet(item: $selectedReader) { book in
             NavigationStack { ReaderView(book: book, store: store, addToShelf: { store.addToShelf(book) }) }
+        }
+        .sheet(item: $selectedHomeRank) { rank in
+            NavigationStack {
+                NativeRankListView(rank: rank, store: store) { item in
+                    selectedHomeRank = nil
+                    select(item)
+                }
+            }
         }
         .sheet(item: $selectedMedia) { media in
             NavigationStack { MediaPreviewView(media: media, store: store) }
@@ -163,6 +172,7 @@ private struct HomeView: View {
     let onSearch: () -> Void
     let onCategories: () -> Void
     let onResume: (NativeBook) -> Void
+    let onOpenRank: () -> Void
     let onSelect: (NativeBook) -> Void
     @State private var selectedTab = 0
     @State private var dismissedContinueIDs: Set<String> = []
@@ -183,7 +193,8 @@ private struct HomeView: View {
         case 5: "audio"
         default: "book"
         }
-        return store.homeItems.filter { $0.kind == kind }
+        let rankedIDs = selectedTab == 0 ? Set(store.homeRank?.books.map(\.id) ?? []) : []
+        return store.homeItems.filter { $0.kind == kind && !rankedIDs.contains($0.id) }
     }
 
     private var continueReading: NativeBook? {
@@ -221,6 +232,9 @@ private struct HomeView: View {
                                     UserDefaults.standard.set(true, forKey: "xiaoman.continue.dismissed.\(item.id)")
                                     dismissedContinueIDs.insert(item.id)
                                 }
+                            }
+                            if selectedTab == 0, let rank = store.homeRank, !rank.books.isEmpty {
+                                NativeHomeRankShelf(rank: rank, store: store, onSelect: onSelect, onOpenAll: onOpenRank)
                             }
                             sectionLabel
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: gap, alignment: .top), count: count), alignment: .leading, spacing: 20) {
@@ -290,7 +304,7 @@ private struct HomeView: View {
     private var sectionLabel: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 10) {
-                Text(selectedTab == 0 ? "01 / FOR YOU" : "01 / \((selectedTab < store.homeTabs.count ? store.homeTabs[selectedTab].title : "FOR YOU").uppercased())")
+                Text(selectedTab == 0 ? (store.homeRank == nil ? "01 / FOR YOU" : "02 / FOR YOU") : "01 / \((selectedTab < store.homeTabs.count ? store.homeTabs[selectedTab].title : "FOR YOU").uppercased())")
                     .font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1.05)
                     .foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
                     .lineLimit(1)
@@ -309,6 +323,215 @@ private struct HomeView: View {
         Button(action: action) { Image(systemName: symbol).font(.system(size: 19)).frame(width: 36, height: 36) }
             .buttonStyle(.plain).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
             .accessibilityLabel(label)
+    }
+}
+
+private struct NativeHomeRankShelf: View {
+    let rank: NativeHomeRank
+    @ObservedObject var store: NativeReadingStore
+    let onSelect: (NativeBook) -> Void
+    let onOpenAll: () -> Void
+    @State private var selectedBoard = 0
+    @State private var selectedBook = 0
+    @State private var loadedBooks: [NativeBook]?
+    @State private var loadingBoard = false
+
+    private var books: [NativeBook] { loadedBooks ?? rank.books }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("01 / RANKING").font(.system(size: 8, weight: .medium, design: .monospaced)).tracking(0.8).foregroundStyle(.secondary)
+                    Text(rank.title).font(.system(size: 18, weight: .bold)).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                }
+                Spacer()
+                Button(action: onOpenAll) {
+                    HStack(spacing: 4) {
+                        Text("完整榜单").font(.system(size: 12, weight: .medium))
+                        Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
+                    }.foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
+                }.buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 10)
+
+            if rank.names.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(rank.names.enumerated()), id: \.offset) { index, name in
+                            Button { selectBoard(index) } label: {
+                                Text(name).font(.system(size: 12, weight: index == selectedBoard ? .semibold : .regular))
+                                    .foregroundStyle(index == selectedBoard ? Color(red: 0.11, green: 0.11, blue: 0.11) : Color(red: 0.43, green: 0.43, blue: 0.41))
+                                    .padding(.horizontal, 11).frame(height: 28)
+                                    .background(index == selectedBoard ? Color.black.opacity(0.07) : .clear, in: Capsule())
+                                    .overlay(Capsule().strokeBorder(Color.black.opacity(index == selectedBoard ? 0.07 : 0.1), lineWidth: 0.7))
+                            }.buttonStyle(.plain)
+                        }
+                    }.padding(.horizontal, 16)
+                }
+            }
+
+            GeometryReader { geometry in
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .bottom, spacing: 7) {
+                            ForEach(Array(books.enumerated()), id: \.element.id) { index, book in
+                                Button {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { selectedBook = index }
+                                } label: {
+                                    if index == selectedBook {
+                                        VStack(spacing: 5) {
+                                            Text(String(format: "NO.%03d", index + 1)).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
+                                            Group {
+                                                if let url = book.coverURL {
+                                                    AsyncImage(url: url) { image in image.resizable().scaledToFill() } placeholder: { NativeCoverPlaceholder(item: book) }
+                                                } else { NativeCoverPlaceholder(item: book) }
+                                            }
+                                            .frame(width: 98, height: 138).clipShape(RoundedRectangle(cornerRadius: 3))
+                                            .overlay(alignment: .bottom) {
+                                                LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+                                                    .overlay(alignment: .bottomLeading) {
+                                                        Text(book.title).font(.system(size: 10, weight: .semibold)).lineLimit(2).foregroundStyle(.white).padding(6)
+                                                    }
+                                            }
+                                        }
+                                        .offset(y: -12)
+                                        .frame(width: 106)
+                                        .id(index)
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(book.color.gradient)
+                                            .frame(width: 20, height: 154)
+                                            .overlay(alignment: .top) {
+                                                Text(String(format: "%03d", index + 1)).font(.system(size: 7, weight: .medium, design: .monospaced))
+                                                    .foregroundStyle(.white.opacity(0.82)).padding(.top, 6)
+                                            }
+                                            .overlay {
+                                                Text(book.title).font(.system(size: 8, weight: .medium)).lineLimit(1)
+                                                    .foregroundStyle(.white).fixedSize().rotationEffect(.degrees(-90))
+                                                    .frame(width: 124, height: 16)
+                                            }
+                                            .overlay(alignment: .trailing) { Rectangle().fill(Color.white.opacity(0.22)).frame(width: 3) }
+                                            .id(index)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, max(12, (geometry.size.width - 220) / 2))
+                        .frame(height: 190, alignment: .bottom)
+                    }
+                    .onChange(of: selectedBook) { _, index in
+                        withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(index, anchor: .center) }
+                    }
+                }
+            }
+            .frame(height: 190)
+
+            if books.indices.contains(selectedBook) {
+                let book = books[selectedBook]
+                Button { onSelect(book) } label: {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(book.title).font(.system(size: 17, weight: .bold)).lineLimit(1).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                            Text(book.author).font(.system(size: 12)).lineLimit(1).foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.up.right").font(.system(size: 16, weight: .medium)).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                    }
+                    .frame(height: 58).padding(.horizontal, 16).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            }
+
+            HStack(spacing: 8) {
+                Text(String(format: "NO.%03d", selectedBook + 1)).font(.system(size: 8, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
+                Spacer()
+                Button { if selectedBook > 0 { selectedBook -= 1 } } label: { Image(systemName: "chevron.left").frame(width: 32, height: 34) }.disabled(selectedBook == 0)
+                Text(String(format: "%02d / %02d", min(selectedBook + 1, books.count), min(books.count, 99)))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced)).frame(minWidth: 50)
+                Button { if selectedBook + 1 < books.count { selectedBook += 1 } } label: { Image(systemName: "chevron.right").frame(width: 32, height: 34) }.disabled(selectedBook + 1 >= books.count)
+            }
+            .foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41)).padding(.horizontal, 10).padding(.bottom, 5)
+        }
+        .overlay(alignment: .bottom) { Rectangle().fill(Color(red: 0.88, green: 0.87, blue: 0.84)).frame(height: 0.7) }
+        .onChange(of: rank.id) { _, _ in selectedBoard = 0; selectedBook = 0; loadedBooks = nil }
+    }
+
+    private func selectBoard(_ index: Int) {
+        guard rank.algorithms.indices.contains(index), index != selectedBoard else { return }
+        selectedBoard = index
+        selectedBook = 0
+        loadedBooks = nil
+        loadingBoard = true
+        Task {
+            do { loadedBooks = try await store.rankBoard(id: rank.id, algorithm: rank.algorithms[index]) }
+            catch { loadedBooks = rank.books }
+            loadingBoard = false
+        }
+    }
+}
+
+private struct NativeRankListView: View {
+    let rank: NativeHomeRank
+    @ObservedObject var store: NativeReadingStore
+    let onSelect: (NativeBook) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedBoard = 0
+    @State private var entries: [NativeBook] = []
+    @State private var loading = false
+    @State private var hasMore = true
+    @State private var message: String?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if rank.names.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(rank.names.enumerated()), id: \.offset) { index, name in
+                            Button { selectedBoard = index } label: {
+                                Text(name).font(.system(size: 13, weight: selectedBoard == index ? .semibold : .regular))
+                                    .foregroundStyle(selectedBoard == index ? .primary : .secondary)
+                                    .padding(.horizontal, 12).frame(height: 34)
+                                    .background(selectedBoard == index ? Color.primary.opacity(0.08) : .clear, in: Capsule())
+                            }.buttonStyle(.plain)
+                        }
+                    }.padding(.horizontal, 16)
+                }.padding(.vertical, 8)
+            }
+            if entries.isEmpty && loading { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
+            else if let message, entries.isEmpty { ContentUnavailableView("榜单暂时无法打开", systemImage: "wifi.exclamationmark", description: Text(message)) }
+            else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, item in
+                            Button { onSelect(item) } label: {
+                                HStack(spacing: 10) {
+                                    Text(String(format: "%02d", index + 1)).font(.system(size: 13, weight: .semibold, design: .monospaced)).foregroundStyle(index < 3 ? Color(red: 0.94, green: 0.31, blue: 0.22) : .secondary).frame(width: 24)
+                                    NativeSearchResultRow(book: item)
+                                }.padding(.leading, 14)
+                            }.buttonStyle(.plain)
+                        }
+                        if loading { ProgressView().padding(16) }
+                        else if hasMore { Button("加载更多") { Task { await loadMore() } }.font(.system(size: 14, weight: .medium)).padding(16) }
+                    }
+                }
+            }
+        }
+        .background(Color(red: 0.957, green: 0.953, blue: 0.937))
+        .navigationTitle(rank.title)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
+        .task(id: selectedBoard) { entries = []; hasMore = true; message = nil; await loadMore() }
+    }
+
+    @MainActor private func loadMore() async {
+        guard !loading, hasMore, rank.algorithms.indices.contains(selectedBoard) else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            let page = try await store.rankBoard(id: rank.id, algorithm: rank.algorithms[selectedBoard], offset: entries.count)
+            entries.append(contentsOf: page.filter { candidate in !entries.contains(where: { $0.id == candidate.id }) })
+            hasMore = page.count >= 20
+        } catch { message = error.localizedDescription; hasMore = false }
     }
 }
 
