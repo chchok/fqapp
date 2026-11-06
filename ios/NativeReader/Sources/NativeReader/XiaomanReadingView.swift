@@ -15,6 +15,7 @@ public struct XiaomanReadingView: View {
     @State private var showingCategories = false
     @State private var selectedBook: NativeBook?
     @State private var selectedMedia: NativeBook?
+    @State private var selectedReader: NativeBook?
 
     public init() {}
 
@@ -23,7 +24,7 @@ public struct XiaomanReadingView: View {
             switch selection {
             case .home:
                 NavigationStack {
-                    HomeView(query: $query, store: store, onSearch: { showingSearch = true }, onCategories: { showingCategories = true }) { item in
+                    HomeView(query: $query, store: store, onSearch: { showingSearch = true }, onCategories: { showingCategories = true }, onResume: { selectedReader = $0 }) { item in
                         if item.kind == "book" { selectedBook = item }
                         else { selectedMedia = item }
                     }
@@ -54,6 +55,9 @@ public struct XiaomanReadingView: View {
         }
         .sheet(item: $selectedBook) { book in
             NavigationStack { BookDetailView(book: book, store: store) }
+        }
+        .sheet(item: $selectedReader) { book in
+            NavigationStack { ReaderView(book: book, store: store, addToShelf: { store.addToShelf(book) }) }
         }
         .sheet(item: $selectedMedia) { media in
             NavigationStack { MediaPreviewView(media: media, store: store) }
@@ -158,14 +162,33 @@ private struct HomeView: View {
     @ObservedObject var store: NativeReadingStore
     let onSearch: () -> Void
     let onCategories: () -> Void
+    let onResume: (NativeBook) -> Void
     let onSelect: (NativeBook) -> Void
     @State private var selectedTab = 0
+    @State private var dismissedContinueIDs: Set<String> = []
 
     private func columnCount(for width: CGFloat) -> Int {
         if width < 324 { return 2 }
         if width < 640 { return 3 }
         if width < 900 { return 4 }
-        return min(9, max(6, Int(width / 190)))
+        let fit = Int(width / 190)
+        return fit < 6 ? 5 : min(9, max(6, fit))
+    }
+
+    private var visibleItems: [NativeBook] {
+        let kind = switch selectedTab {
+        case 2: "video"
+        case 3: "manju"
+        case 4: "manga"
+        case 5: "audio"
+        default: "book"
+        }
+        return store.homeItems.filter { $0.kind == kind }
+    }
+
+    private var continueReading: NativeBook? {
+        guard selectedTab == 0 else { return nil }
+        return store.readingHistory.first { $0.kind == "book" || $0.kind == "audio" }
     }
 
     var body: some View {
@@ -183,15 +206,25 @@ private struct HomeView: View {
                 let cardWidth = (gridWidth - CGFloat(count - 1) * gap) / CGFloat(count)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        sectionLabel
-                        if store.homeLoading && store.homeItems.isEmpty {
+                        if store.homeLoading && visibleItems.isEmpty {
                             ProgressView().frame(maxWidth: .infinity, minHeight: 180)
-                        } else if let message = store.homeMessage, store.homeItems.isEmpty {
+                        } else if let message = store.homeMessage, visibleItems.isEmpty {
                             ContentUnavailableView(message, systemImage: "books.vertical", description: Text("稍后重试，或直接搜索作品。"))
                                 .frame(minHeight: 220)
                         } else {
+                            if let item = continueReading,
+                               !dismissedContinueIDs.contains(item.id),
+                               !UserDefaults.standard.bool(forKey: "xiaoman.continue.dismissed.\(item.id)") {
+                                NativeContinueRow(item: item) {
+                                    onResume(item)
+                                } onDismiss: {
+                                    UserDefaults.standard.set(true, forKey: "xiaoman.continue.dismissed.\(item.id)")
+                                    dismissedContinueIDs.insert(item.id)
+                                }
+                            }
+                            sectionLabel
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: gap, alignment: .top), count: count), alignment: .leading, spacing: 20) {
-                                ForEach(store.homeItems) { item in
+                                ForEach(visibleItems) { item in
                                     Button { onSelect(item) } label: { HomeMediaCard(item: item, width: cardWidth) }
                                         .buttonStyle(.plain)
                                 }
@@ -200,7 +233,7 @@ private struct HomeView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.bottom, 110)
+                    .padding(.bottom, 30)
                 }
                 .refreshable { await store.loadHome(tabIndex: selectedTab, force: true) }
             }
@@ -209,9 +242,6 @@ private struct HomeView: View {
         .task {
             selectedTab = store.selectedHomeTab
             await store.loadHome(tabIndex: selectedTab)
-        }
-        .onChange(of: store.homeTabs.count) { _, count in
-            if selectedTab >= count { selectedTab = 0; store.selectedHomeTab = 0 }
         }
     }
 
@@ -279,6 +309,63 @@ private struct HomeView: View {
         Button(action: action) { Image(systemName: symbol).font(.system(size: 19)).frame(width: 36, height: 36) }
             .buttonStyle(.plain).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
             .accessibilityLabel(label)
+    }
+}
+
+private struct NativeContinueRow: View {
+    let item: NativeBook
+    let onOpen: () -> Void
+    let onDismiss: () -> Void
+
+    private var percent: Int { Int((item.progressRatio * 100).rounded()) }
+    private var detail: String {
+        if let chapter = item.savedChapterTitle, !chapter.isEmpty {
+            return "\(item.kind == "audio" ? "听到" : "读到") \(chapter)"
+        }
+        return item.kind == "audio" ? "上次收听" : "上次阅读"
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("CONTINUE / \(detail)")
+                        .font(.system(size: 8, weight: .medium, design: .monospaced))
+                        .tracking(0.65).foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
+                    HStack(spacing: 6) {
+                        Text(item.title).font(.system(size: 14, weight: .bold)).lineLimit(1)
+                        if !item.author.isEmpty {
+                            Text(item.author).font(.system(size: 12.5)).lineLimit(1)
+                                .foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
+                        }
+                    }
+                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                    .padding(.top, 5)
+                    ProgressView(value: item.progressRatio)
+                        .tint(Color(red: 0.11, green: 0.11, blue: 0.11))
+                        .scaleEffect(x: 1, y: 0.35, anchor: .center)
+                        .padding(.top, 8)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 14).padding(.vertical, 11).padding(.trailing, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if percent > 0 {
+                Text("\(percent)%")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                    .padding(.trailing, 8)
+            }
+            Button(action: onDismiss) {
+                Image(systemName: "xmark").font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(red: 0.43, green: 0.43, blue: 0.41))
+                    .frame(width: 34, height: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).accessibilityLabel("隐藏继续阅读")
+        }
+        .background(Color.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16).padding(.top, 14)
     }
 }
 
@@ -1761,7 +1848,7 @@ private struct ReaderView: View {
         do {
             content = try await store.content(for: chapters[index], book: book)
             selectedIndex = index
-            store.recordProgress(for: book, chapter: chapters[index])
+            store.recordProgress(for: book, chapter: chapters[index], progress: Double(index + 1) / Double(chapters.count))
         } catch { self.error = error.localizedDescription }
         isLoading = false
     }

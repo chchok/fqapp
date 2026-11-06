@@ -1,6 +1,13 @@
 name: Sync upstream and publish Xiaoman native previews
 
 on:
+  push:
+    branches: [master]
+    paths:
+      - 'ios/NativeReader/**'
+      - 'scripts/package_native_unsigned.sh'
+      - 'scripts/build_rust_native.sh'
+      - '.github/workflows/upstream-sync-native.yml'
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
@@ -56,11 +63,11 @@ jobs:
           git push origin HEAD:master
 
       - name: Build unsigned iOS and macOS installers
-        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         run: ./scripts/package_native_unsigned.sh
 
       - name: Publish prerelease assets
-        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.sync.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

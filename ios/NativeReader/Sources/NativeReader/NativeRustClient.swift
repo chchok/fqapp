@@ -40,6 +40,8 @@ struct NativeBook: Identifiable, Hashable, Codable {
     let coverURL: URL?
 
     var progress: String { UserDefaults.standard.string(forKey: "xiaoman.progress.\(id)").map { "读至 \($0)" } ?? "尚未阅读" }
+    var savedChapterTitle: String? { UserDefaults.standard.string(forKey: "xiaoman.progress.\(id)") }
+    var progressRatio: Double { min(1, max(0, UserDefaults.standard.double(forKey: "xiaoman.progressRatio.\(id)"))) }
     var color: Color {
         let palette: [Color] = [Color(red: 0.79, green: 0.56, blue: 0.43), Color(red: 0.40, green: 0.51, blue: 0.47), Color(red: 0.75, green: 0.69, blue: 0.49)]
         return palette[abs(id.hashValue) % palette.count]
@@ -104,9 +106,10 @@ final class NativeReadingStore: ObservableObject {
         objectWillChange.send()
     }
 
-    func recordProgress(for book: NativeBook, chapter: NativeChapter) {
+    func recordProgress(for book: NativeBook, chapter: NativeChapter, progress: Double) {
         UserDefaults.standard.set(chapter.title, forKey: "xiaoman.progress.\(book.id)")
         UserDefaults.standard.set(chapter.id, forKey: "xiaoman.chapter.\(book.id)")
+        UserDefaults.standard.set(min(1, max(0, progress)), forKey: "xiaoman.progressRatio.\(book.id)")
         readingHistory.removeAll { $0.id == book.id }
         readingHistory.insert(book, at: 0)
         if let data = try? JSONEncoder().encode(readingHistory) { UserDefaults.standard.set(data, forKey: "xiaoman.history") }
