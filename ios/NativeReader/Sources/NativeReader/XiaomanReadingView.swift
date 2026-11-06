@@ -283,20 +283,24 @@ private struct CategoryBrowserView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedChannel = "1"
     @State private var selectedDimension = ""
+    @State private var expandedSections: Set<String> = []
 
-    private var dimensions: [String] {
-        var output: [String] = []
-        for tile in store.categoryTiles {
-            let name = tile.dimension.isEmpty ? "全部" : tile.dimension
-            if !output.contains(name) { output.append(name) }
+    private var sections: [NativeCategorySection] {
+        guard !store.categoryTiles.isEmpty else { return [] }
+        var result = [NativeCategorySection(id: "hot", title: "热门标签", tiles: store.categoryTiles)]
+        for dimension in store.categoryDimensions where dimension.id != "0" {
+            let tiles = store.categoryTiles.filter { $0.dimension == dimension.id }
+            if !tiles.isEmpty {
+                result.append(NativeCategorySection(id: dimension.id, title: dimension.title, tiles: tiles))
+            }
         }
-        return output
+        return result
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 20)).frame(width: 44, height: 48) }
+                Button { dismiss() } label: { Image(systemName: "chevron.left").font(.system(size: 20)).frame(width: 48, height: 48) }
                     .buttonStyle(.plain).foregroundStyle(.primary).accessibilityLabel("返回")
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 24) {
@@ -304,18 +308,19 @@ private struct CategoryBrowserView: View {
                             Button {
                                 selectedChannel = channel.id
                                 selectedDimension = ""
+                                expandedSections = []
                                 Task {
                                     await store.loadCategories(channel: channel.id)
-                                    selectedDimension = dimensions.first ?? ""
+                                    selectedDimension = sections.first?.id ?? ""
                                 }
                             } label: {
                                 Text(channel.title).font(.system(size: 16, weight: selectedChannel == channel.id ? .bold : .regular))
-                                    .foregroundStyle(selectedChannel == channel.id ? Color.primary : Color.secondary)
+                                    .foregroundStyle(selectedChannel == channel.id ? Color(red: 0.11, green: 0.11, blue: 0.11) : Color(red: 0.55, green: 0.55, blue: 0.55))
                             }.buttonStyle(.plain)
                         }
                     }
                 }
-                Button { onChoose("") } label: { Image(systemName: "magnifyingglass").font(.system(size: 19)).frame(width: 44, height: 48) }
+                Button { onChoose("") } label: { Image(systemName: "magnifyingglass").font(.system(size: 20)).frame(width: 48, height: 48) }
                     .buttonStyle(.plain).foregroundStyle(.primary).accessibilityLabel("搜索分类")
             }
             .frame(height: 48)
@@ -323,52 +328,98 @@ private struct CategoryBrowserView: View {
             if store.categoriesLoading && store.categoryTiles.isEmpty {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let message = store.categoriesMessage, store.categoryTiles.isEmpty {
-                ContentUnavailableView(message, systemImage: "square.grid.2x2", description: Text("切换频道或稍后重试。"))
+                VStack(spacing: 14) {
+                    Image(systemName: "cloud.slash").font(.system(size: 28)).foregroundStyle(.secondary)
+                    Text(message).font(.system(size: 15)).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Button { Task { await store.loadCategories(channel: selectedChannel) } } label: {
+                        Label("重试", systemImage: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .medium))
+                            .padding(.horizontal, 18).padding(.vertical, 9)
+                            .background(Color(red: 0.94, green: 0.31, blue: 0.22), in: Capsule())
+                            .foregroundStyle(.white)
+                    }.buttonStyle(.plain)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                let groups = dimensions
-                let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
-                ScrollViewReader { proxy in
-                    HStack(spacing: 0) {
-                        ScrollView(showsIndicators: false) {
-                            VStack(spacing: 0) {
-                                ForEach(groups, id: \.self) { dimension in
-                                    Button {
-                                        selectedDimension = dimension
-                                        withAnimation(.easeInOut(duration: 0.22)) { proxy.scrollTo(dimension, anchor: .top) }
-                                    } label: {
-                                        Text(dimension).font(.system(size: 14, weight: selectedDimension == dimension ? .semibold : .regular))
-                                            .foregroundStyle(selectedDimension == dimension ? Color(red: 0.72, green: 0.36, blue: 0.24) : Color.primary)
-                                            .frame(width: 88, height: 50)
-                                    }.buttonStyle(.plain)
+                GeometryReader { geometry in
+                    let count = max(3, min(10, Int((geometry.size.width - 88 - 32) / 170)))
+                    let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 7, alignment: .top), count: count)
+                    ScrollViewReader { proxy in
+                        HStack(spacing: 0) {
+                            ScrollView(showsIndicators: false) {
+                                VStack(spacing: 0) {
+                                    ForEach(sections) { section in
+                                        Button {
+                                            selectedDimension = section.id
+                                            withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo(section.id, anchor: .top) }
+                                        } label: {
+                                            Text(section.title)
+                                                .font(.system(size: 14, weight: .regular))
+                                                .foregroundStyle(selectedDimension == section.id ? Color(red: 0.94, green: 0.31, blue: 0.22) : Color(red: 0.11, green: 0.11, blue: 0.11))
+                                                .lineLimit(1).minimumScaleFactor(0.75)
+                                                .frame(width: 88, height: 50)
+                                        }.buttonStyle(.plain)
+                                    }
                                 }
                             }
-                        }.frame(width: 88).background(Color.primary.opacity(0.035))
+                            .frame(width: 88)
+                            .background(Color(red: 0.925, green: 0.914, blue: 0.886))
 
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 0) {
-                                ForEach(groups, id: \.self) { dimension in
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        HStack(spacing: 8) {
-                                            Text(dimension).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                                            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 0.7)
-                                        }.padding(.top, 16).padding(.bottom, 8)
-                                        LazyVGrid(columns: columns, spacing: 8) {
-                                            ForEach(store.categoryTiles.filter { ($0.dimension.isEmpty ? "全部" : $0.dimension) == dimension }) { tile in
-                                                Button { onChoose(tile.title) } label: {
-                                                    HStack(spacing: 4) {
-                                                        if tile.isHot { Image(systemName: "flame.fill").font(.system(size: 10)).foregroundStyle(.orange) }
-                                                        Text(tile.title).font(.system(size: 12.5)).lineLimit(1).minimumScaleFactor(0.8)
-                                                    }
-                                                    .frame(maxWidth: .infinity, minHeight: 40)
-                                                    .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 11))
-                                                }.buttonStyle(.plain).foregroundStyle(.primary)
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: 0) {
+                                    ForEach(sections) { section in
+                                        let collapsed = section.tiles.count > 30 && !expandedSections.contains(section.id)
+                                        let visible = collapsed ? Array(section.tiles.prefix(30)) : section.tiles
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            HStack {
+                                                Text(section.title).font(.system(size: 12)).foregroundStyle(Color(red: 0.59, green: 0.59, blue: 0.59))
+                                                Spacer()
+                                                if section.tiles.count > 30 {
+                                                    Button {
+                                                        if expandedSections.contains(section.id) { expandedSections.remove(section.id) }
+                                                        else { expandedSections.insert(section.id) }
+                                                    } label: {
+                                                        HStack(spacing: 2) {
+                                                            Text(expandedSections.contains(section.id) ? "收起" : "展开").font(.system(size: 12))
+                                                            Image(systemName: expandedSections.contains(section.id) ? "chevron.up" : "chevron.down").font(.system(size: 10))
+                                                        }.foregroundStyle(Color(red: 0.59, green: 0.59, blue: 0.59))
+                                                    }.buttonStyle(.plain)
+                                                }
+                                            }
+                                            .frame(height: 24)
+                                            LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 0) {
+                                                ForEach(visible) { tile in
+                                                    Button { onChoose(tile.title) } label: {
+                                                        HStack(spacing: 2) {
+                                                            if tile.isHot { Image(systemName: "flame.fill").font(.system(size: 16)).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11)) }
+                                                            Text(tile.title).font(.system(size: 14)).lineLimit(1).minimumScaleFactor(0.75)
+                                                        }
+                                                        .frame(maxWidth: .infinity).frame(height: 30)
+                                                        .background(Color(red: 0.925, green: 0.925, blue: 0.925), in: RoundedRectangle(cornerRadius: 6))
+                                                        .padding(.top, 6).padding(.bottom, 4)
+                                                    }.buttonStyle(.plain).foregroundStyle(Color(red: 0.11, green: 0.11, blue: 0.11))
+                                                }
                                             }
                                         }
-                                    }.padding(.horizontal, 14).id(dimension)
+                                        .padding(.top, 16)
+                                        .id(section.id)
+                                        .background {
+                                            GeometryReader { itemGeometry in
+                                                Color.clear.preference(key: NativeCategoryOffsetsKey.self, value: [section.id: itemGeometry.frame(in: .named("nativeCategoryList")).minY])
+                                            }
+                                        }
+                                    }
                                 }
-                            }.padding(.bottom, 24)
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 16)
+                            }
+                            .coordinateSpace(name: "nativeCategoryList")
+                            .onPreferenceChange(NativeCategoryOffsetsKey.self) { offsets in
+                                if let current = sections.last(where: { (offsets[$0.id] ?? .greatestFiniteMagnitude) <= 24 }) {
+                                    if selectedDimension != current.id { selectedDimension = current.id }
+                                }
+                            }
+                            .background(Color(red: 0.957, green: 0.953, blue: 0.937), in: UnevenRoundedRectangle(topLeadingRadius: 12))
                         }
-                        .background(Color(red: 0.957, green: 0.953, blue: 0.937), in: UnevenRoundedRectangle(topLeadingRadius: 12))
                     }
                 }
             }
@@ -377,8 +428,21 @@ private struct CategoryBrowserView: View {
         .nativeNavigationChromeHidden()
         .task {
             await store.loadCategories(channel: selectedChannel)
-            selectedDimension = dimensions.first ?? ""
+            selectedDimension = sections.first?.id ?? ""
         }
+    }
+}
+
+private struct NativeCategorySection: Identifiable {
+    let id: String
+    let title: String
+    let tiles: [NativeCategoryTile]
+}
+
+private struct NativeCategoryOffsetsKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

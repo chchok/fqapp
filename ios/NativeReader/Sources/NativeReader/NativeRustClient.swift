@@ -14,6 +14,11 @@ struct NativeCategoryChannel: Identifiable, Hashable {
     let title: String
 }
 
+struct NativeCategoryDimension: Identifiable, Hashable {
+    let id: String
+    let title: String
+}
+
 struct NativeCategoryTile: Identifiable, Hashable {
     let id: String
     let title: String
@@ -62,6 +67,7 @@ final class NativeReadingStore: ObservableObject {
     @Published private(set) var homeLoading = false
     @Published private(set) var homeMessage: String?
     @Published private(set) var categoryChannels: [NativeCategoryChannel] = []
+    @Published private(set) var categoryDimensions: [NativeCategoryDimension] = []
     @Published private(set) var categoryTiles: [NativeCategoryTile] = []
     @Published private(set) var categoriesLoading = false
     @Published private(set) var categoriesMessage: String?
@@ -76,6 +82,7 @@ final class NativeReadingStore: ObservableObject {
     private var lastQuery = ""
     private var loadedHomeTab: Int?
     private var homeLoadGeneration = 0
+    private var categoryLoadGeneration = 0
     private var readingSessionStartedAt: Date?
 
     private static func todayReadMinutesKey() -> String {
@@ -233,20 +240,25 @@ final class NativeReadingStore: ObservableObject {
     }
 
     func loadCategories(channel: String = "1") async {
-        guard !categoriesLoading else { return }
+        categoryLoadGeneration += 1
+        let generation = categoryLoadGeneration
         categoriesLoading = true
         categoriesMessage = nil
-        defer { categoriesLoading = false }
+        categoryDimensions = []
+        categoryTiles = []
+        defer { if generation == categoryLoadGeneration { categoriesLoading = false } }
         do {
             try await initializeIfNeeded()
             let result = try await Task.detached(priority: .userInitiated) {
                 try Self.fetchCategories(channel: channel)
             }.value
+            guard generation == categoryLoadGeneration else { return }
             categoryChannels = result.channels
+            categoryDimensions = result.dimensions
             categoryTiles = result.tiles
             if result.tiles.isEmpty { categoriesMessage = "此分类暂时没有条目" }
         } catch {
-            categoriesMessage = error.localizedDescription
+            if generation == categoryLoadGeneration { categoriesMessage = error.localizedDescription }
         }
     }
 
@@ -397,26 +409,36 @@ final class NativeReadingStore: ObservableObject {
         return url
     }
 
-    nonisolated private static func fetchCategories(channel: String) throws -> (channels: [NativeCategoryChannel], tiles: [NativeCategoryTile]) {
+    nonisolated private static func fetchCategories(channel: String) throws -> (channels: [NativeCategoryChannel], dimensions: [NativeCategoryDimension], tiles: [NativeCategoryTile]) {
         let payload = try performJSONRequest(path: "/api/v1/category", parameters: [URLQueryItem(name: "category_tab", value: channel)])
-        guard let root = payload as? [String: Any], let data = root["data"] as? [String: Any] else { return ([], []) }
+        guard let root = payload as? [String: Any], let data = root["data"] as? [String: Any] else { return ([], [], []) }
         let rule = data["rule"] as? [String: Any] ?? [:]
         var channels = (rule["tab"] as? [[String: Any]] ?? []).compactMap { raw -> NativeCategoryChannel? in
             guard let title = string(raw, keys: ["name", "title"], fallback: [:]), !title.isEmpty else { return nil }
             let id = string(raw, keys: ["value", "id"], fallback: [:]) ?? "1"
             return NativeCategoryChannel(id: id, title: title)
         }
+        channels.sort { (Int($0.id) ?? 99) < (Int($1.id) ?? 99) }
         for (id, title) in [("6", "短剧"), ("5", "漫画")] where !channels.contains(where: { $0.id == id }) {
             channels.append(NativeCategoryChannel(id: id, title: title))
         }
+        func scalar(_ value: Any?) -> String? {
+            if let text = value as? String, !text.isEmpty { return text }
+            if let number = value as? NSNumber { return number.stringValue }
+            return nil
+        }
+        let dimensions = (rule["dim"] as? [[String: Any]] ?? []).compactMap { raw -> NativeCategoryDimension? in
+            guard let title = string(raw, keys: ["name"], fallback: [:]), !title.isEmpty else { return nil }
+            return NativeCategoryDimension(id: scalar(raw["value"]) ?? scalar(raw["id"]) ?? "", title: title)
+        }
         let tiles = (data["down_category"] as? [[String: Any]] ?? []).compactMap { raw -> NativeCategoryTile? in
             guard let title = string(raw, keys: ["name", "title"], fallback: [:]), !title.isEmpty else { return nil }
-            let id = string(raw, keys: ["id", "category_id"], fallback: [:]) ?? title
-            let dimension = string(raw, keys: ["dim"], fallback: [:]) ?? ""
+            let id = scalar(raw["id"]) ?? scalar(raw["category_id"]) ?? title
+            let dimension = scalar(raw["dim"]) ?? ""
             let hot = string(raw, keys: ["tag"], fallback: [:]) == "1"
             return NativeCategoryTile(id: id, title: title, dimension: dimension, isHot: hot)
         }
-        return (channels, tiles)
+        return (channels, dimensions, tiles)
     }
 
     nonisolated private static func fetchHotSearchTerms() throws -> [String] {
