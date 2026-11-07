@@ -216,7 +216,9 @@ class MemoryDramaDownloadStore implements DramaDownloadStore {
     final directory = videoDirectory;
     if (episode != null && directory != null) {
       final file = File(episode.filePath);
-      if (file.existsSync() && file.parent.path == directory.path) {
+      if (file.existsSync() &&
+          await file.parent.resolveSymbolicLinks() ==
+              await directory.resolveSymbolicLinks()) {
         await file.delete();
       }
     }

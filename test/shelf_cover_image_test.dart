@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite/sqflite.dart';
 
 import 'package:fqapp/models/media_item.dart';
 import 'package:fqapp/services/app_theme.dart';
@@ -36,8 +37,24 @@ const _pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
 
 void main() {
   late Directory temp;
+  TestWidgetsFlutterBinding.ensureInitialized();
+  databaseFactory = databaseFactorySqflitePlugin;
+  const databaseChannel = MethodChannel('com.tekartik.sqflite');
 
   setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(databaseChannel, (call) async {
+          switch (call.method) {
+            case 'getDatabasesPath':
+              return temp.path;
+            case 'openDatabase':
+              return 1;
+            case 'query':
+              return <String, Object>{};
+            default:
+              return null;
+          }
+        });
     einkModeNotifier.value = false;
     temp = Directory.systemTemp.createTempSync('fqapp_shelf_cover_test');
     // `PosterCache` is backed by `flutter_cache_manager`, which asks
